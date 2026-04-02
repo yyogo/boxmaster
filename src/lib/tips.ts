@@ -1,11 +1,11 @@
-import type { StrokeScore } from '$lib/scoring/types';
+import type { StrokeScore, MetricKey } from '$lib/scoring/types';
 
 export interface Tip {
 	text: string;
 	/** Which exercise types this applies to (empty = all) */
 	exercises?: string[];
-	/** If set, only show when the named score is below this threshold */
-	trigger?: { score: keyof Pick<StrokeScore, 'accuracy' | 'flow' | 'speed' | 'confidence'>; below: number };
+	/** If set, only show when the named metric is below this threshold */
+	trigger?: { score: MetricKey; below: number };
 }
 
 const GENERAL_TIPS: Tip[] = [
@@ -48,13 +48,14 @@ const EXERCISE_TIPS: Tip[] = [
 ];
 
 const PERFORMANCE_TIPS: Tip[] = [
-	{ text: 'Your accuracy is dipping — try slowing down slightly and focusing on the guide path.', trigger: { score: 'accuracy', below: 55 } },
-	{ text: 'Great accuracy! Now try to match it at a faster pace to build muscle memory.', trigger: { score: 'accuracy', below: 101 } }, // always eligible, filtered by high accuracy + low speed below
-	{ text: 'Your strokes are uneven — try to maintain a constant speed throughout each stroke.', trigger: { score: 'flow', below: 50 } },
-	{ text: 'Smooth strokes! Keep that even tempo — it\'s a sign of good arm control.', trigger: { score: 'flow', below: 101 } },
-	{ text: 'You\'re drawing quite slowly — trust your arm and commit to the stroke with more speed.', trigger: { score: 'speed', below: 45 } },
-	{ text: 'Your speed is good. Focus on keeping it steady from start to finish.', trigger: { score: 'speed', below: 101 } },
-	{ text: 'Your pressure is inconsistent — relax your grip and let the pen rest naturally.', trigger: { score: 'confidence', below: 50 } },
+	{ text: 'Your accuracy is dipping — try slowing down slightly and focusing on the guide path.', trigger: { score: 'pathDeviation', below: 55 } },
+	{ text: 'Great accuracy! Now try to match it at a faster pace to build muscle memory.', trigger: { score: 'pathDeviation', below: 101 } },
+	{ text: 'Your strokes are jerky — focus on a single fluid motion without corrections.', trigger: { score: 'smoothness', below: 55 } },
+	{ text: 'Your strokes are uneven — try to maintain a constant speed throughout each stroke.', trigger: { score: 'speedConsistency', below: 50 } },
+	{ text: 'Smooth strokes! Keep that even tempo — it\'s a sign of good arm control.', trigger: { score: 'speedConsistency', below: 101 } },
+	{ text: 'Your pressure is inconsistent — relax your grip and let the pen rest naturally.', trigger: { score: 'pressureControl', below: 50 } },
+	{ text: 'Your endpoints are drifting — aim for the target dots before you start the stroke.', trigger: { score: 'endpointAccuracy', below: 50 } },
+	{ text: 'Close the gap — aim to end your stroke exactly where you started.', trigger: { score: 'closureGap', below: 60 } },
 ];
 
 /**
@@ -69,37 +70,33 @@ export function pickTip(
 ): { text: string; index: number } {
 	const pool = buildPool(exerciseType);
 
-	// Try a performance tip first if we have recent scores
 	if (recentScores.length >= 2) {
-		const avg = (key: keyof Pick<StrokeScore, 'accuracy' | 'flow' | 'speed'>) =>
-			Math.round(recentScores.reduce((s, sc) => s + sc[key], 0) / recentScores.length);
+		const metricAvg = (key: MetricKey): number | null => {
+			const vals = recentScores.map(s => s[key]).filter((v): v is number => v != null);
+			return vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+		};
 
-		const avgAcc = avg('accuracy');
-		const avgFlow = avg('flow');
-		const avgSpeed = avg('speed');
+		const scoreMap: Partial<Record<MetricKey, number | null>> = {
+			pathDeviation: metricAvg('pathDeviation'),
+			smoothness: metricAvg('smoothness'),
+			speedConsistency: metricAvg('speedConsistency'),
+			pressureControl: metricAvg('pressureControl'),
+			endpointAccuracy: metricAvg('endpointAccuracy'),
+			closureGap: metricAvg('closureGap'),
+		};
 
-		const confScores = recentScores.map(s => s.confidence).filter((c): c is number => c != null);
-		const avgConf = confScores.length > 0
-			? Math.round(confScores.reduce((a, b) => a + b, 0) / confScores.length)
-			: null;
-
-		const scoreMap: Record<string, number | null> = { accuracy: avgAcc, flow: avgFlow, speed: avgSpeed, confidence: avgConf };
-
-		// Find applicable performance tips (prioritise the weakest score)
 		for (const pt of PERFORMANCE_TIPS) {
 			if (!pt.trigger) continue;
 			const val = scoreMap[pt.trigger.score];
 			if (val == null) continue;
 			if (val < pt.trigger.below) {
-				// Special case: "great accuracy, now go faster" only when accuracy ≥ 75 and speed < 55
-				if (pt.trigger.below === 101 && pt.trigger.score === 'accuracy') {
-					if (avgAcc < 75 || avgSpeed >= 55) continue;
+				// "Great accuracy, now go faster" — only when path accuracy is high but speed consistency is low
+				if (pt.trigger.below === 101 && pt.trigger.score === 'pathDeviation') {
+					const sc = scoreMap.speedConsistency;
+					if ((val) < 75 || (sc != null && sc >= 55)) continue;
 				}
-				if (pt.trigger.below === 101 && pt.trigger.score === 'flow') {
-					if (avgFlow < 70) continue;
-				}
-				if (pt.trigger.below === 101 && pt.trigger.score === 'speed') {
-					if (avgSpeed < 60) continue;
+				if (pt.trigger.below === 101 && pt.trigger.score === 'speedConsistency') {
+					if ((val) < 60) continue;
 				}
 				const idx = pool.findIndex(t => t.text === pt.text);
 				if (idx !== -1 && !shownIndices.has(idx)) {

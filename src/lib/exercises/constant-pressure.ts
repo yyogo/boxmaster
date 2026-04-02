@@ -4,7 +4,7 @@ import type { StrokeScore, ScoredSegment } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
 import { drawPressureStroke } from '$lib/canvas/renderer';
 import { renderPressureHighlights } from '$lib/canvas/highlights';
-import { defineExercise, buildStrokeScore, getStrokePoints, strokeChord, angleDiff, type CoordTransform } from './plugin';
+import { defineExercise, buildMetricScore, getStrokePoints, strokeChord, angleDiff, type CoordTransform } from './plugin';
 import { registerExercise } from './registry';
 import { GUIDE_COLOR, HINT_COLOR, drawDot, randomLine, scoreLineAccuracy, highlightLineDivergent, drawRibbon, pressureShapeScore } from './utils';
 
@@ -111,8 +111,14 @@ export const constantPressurePlugin = defineExercise({
 		const accuracy = scoreLineAccuracy(points, p);
 		const divergent = highlightLineDivergent(points, p);
 		const pressure = detectPressureInconsistency(points);
-		const score = buildStrokeScore(accuracy, points, [...divergent, ...pressure], true);
-		return { ...score, metrics: { pressureMatch: scorePressureConstancy(points) } };
+		return buildMetricScore(points, {
+			pathDeviation: accuracy,
+			smoothness: true,
+			speedConsistency: true,
+			pressureControl: true,
+			endpointAccuracy: { start: { x: p.x1, y: p.y1 }, end: { x: p.x2, y: p.y2 } },
+			extraSegments: [...divergent, ...pressure],
+		});
 	},
 
 	computeShapeScore: pressureShapeScore,

@@ -4,7 +4,7 @@ import type { StrokeScore, ScoredSegment } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
 import { drawPressureStroke } from '$lib/canvas/renderer';
 import { renderPressureHighlights } from '$lib/canvas/highlights';
-import { defineExercise, buildStrokeScore, getStrokePoints, strokeChord, angleDiff, type CoordTransform } from './plugin';
+import { defineExercise, buildMetricScore, getStrokePoints, strokeChord, angleDiff, type CoordTransform } from './plugin';
 import { registerExercise } from './registry';
 import { GUIDE_COLOR, HINT_COLOR, drawDot, randomLine, scoreLineAccuracy, highlightLineDivergent, drawTaperedRibbon, lineToPathPoints, projectOntoLine, pressureShapeScore } from './utils';
 
@@ -124,8 +124,14 @@ export const taperPlugin = defineExercise({
 		const accuracy = scoreLineAccuracy(points, p);
 		const divergent = highlightLineDivergent(points, p);
 		const pressure = detectPressureDeviation(points, p);
-		const score = buildStrokeScore(accuracy, points, [...divergent, ...pressure], true);
-		return { ...score, metrics: { pressureMatch: scoreTaperMatch(points, p) } };
+		return buildMetricScore(points, {
+			pathDeviation: accuracy,
+			smoothness: true,
+			speedConsistency: true,
+			taperQuality: { startPressure: p.startPressure, endPressure: p.endPressure },
+			endpointAccuracy: { start: { x: p.x1, y: p.y1 }, end: { x: p.x2, y: p.y2 } },
+			extraSegments: [...divergent, ...pressure],
+		});
 	},
 
 	computeShapeScore: pressureShapeScore,

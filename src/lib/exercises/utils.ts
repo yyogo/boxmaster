@@ -219,9 +219,6 @@ export function projectOntoLine(
 export function pressureShapeScore(strokeScores: StrokeScore[]): number {
 	if (strokeScores.length === 0) return 0;
 	return Math.round(
-		strokeScores.reduce((s, sc) => {
-			const pm = sc.metrics?.pressureMatch ?? sc.flow;
-			return s + (sc.accuracy * 0.20 + sc.flow * 0.10 + sc.speed * 0.10 + pm * 0.6);
-		}, 0) / strokeScores.length
+		strokeScores.reduce((s, sc) => s + sc.composite, 0) / strokeScores.length,
 	);
 }

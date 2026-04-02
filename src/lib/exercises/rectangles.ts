@@ -4,10 +4,8 @@ import type { StrokeScore } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
 import { rectEdges, rectCorners } from '$lib/scoring/geometry';
 import { placeNonOverlapping } from './placement';
-import { defineExercise, buildStrokeScore, getStrokePoints, strokeChord, strokeArcLen, angleDiff, type CoordTransform } from './plugin';
+import { defineExercise, buildMetricScore, getStrokePoints, strokeChord, strokeArcLen, angleDiff, type CoordTransform } from './plugin';
 import { registerExercise } from './registry';
-import { scoreFlow } from '$lib/scoring/flow';
-import { scoreConfidence } from '$lib/scoring/confidence';
 import { GUIDE_COLOR, HINT_COLOR, drawDot, scoreLineAccuracy } from './utils';
 
 function scoreFreeRect(strokes: Stroke[]): number {
@@ -115,30 +113,21 @@ export const rectanglePlugin = defineExercise({
 		const p = reference.params as unknown as RectParams;
 
 		if (mode === 'free') {
-			const { steadiness, speed } = scoreFlow(points);
-			const confidence = scoreConfidence(points);
-			return { accuracy: 0, flow: steadiness, speed, confidence, segments: [] };
+			return buildMetricScore(points, {
+				pathDeviation: null,
+				smoothness: true,
+				speedConsistency: true,
+			});
 		}
 
 		const edges = rectEdges(p);
 		const edge = edges[strokeIndex % 4];
-		return buildStrokeScore(scoreLineAccuracy(points, edge), points);
-	},
-
-	computeShapeScore(strokeScores: StrokeScore[]): number {
-		if (strokeScores.length === 0) return 0;
-		const hasRealAccuracy = strokeScores.some((s) => s.accuracy > 0);
-		if (hasRealAccuracy) {
-			return Math.round(
-				strokeScores.reduce(
-					(s, sc) => s + sc.accuracy * 0.55 + sc.flow * 0.25 + sc.speed * 0.20,
-					0
-				) / strokeScores.length
-			);
-		}
-		return Math.round(
-			strokeScores.reduce((s, sc) => s + sc.flow * 0.45 + sc.speed * 0.25 + ((sc.confidence ?? sc.flow) * 0.30), 0) / strokeScores.length
-		);
+		return buildMetricScore(points, {
+			pathDeviation: scoreLineAccuracy(points, edge),
+			smoothness: true,
+			speedConsistency: true,
+			endpointAccuracy: { start: { x: edge.x1, y: edge.y1 }, end: { x: edge.x2, y: edge.y2 } },
+		});
 	},
 
 	isStrokeRelevant(stroke: Stroke, reference: ReferenceShape, canvasW: number, _canvasH: number, mode: ExerciseMode): boolean {

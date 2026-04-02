@@ -4,7 +4,7 @@ import type { StrokeScore } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
 import { pointToSegmentDist } from '$lib/scoring/geometry';
 import { placeNonOverlapping } from './placement';
-import { defineExercise, buildStrokeScore, type CoordTransform } from './plugin';
+import { defineExercise, buildMetricScore, type CoordTransform } from './plugin';
 import { registerExercise } from './registry';
 
 import { drawDot } from './utils';
@@ -391,7 +391,11 @@ export const perspectivePlugin = defineExercise({
 	scoreStroke(points: StrokePoint[], reference: ReferenceShape): StrokeScore {
 		const bp = reference.params as unknown as PerspectiveBoxParams;
 		const accuracy = scorePerspectiveStroke(points, [bp]);
-		return buildStrokeScore(accuracy, points);
+		return buildMetricScore(points, {
+			pathDeviation: accuracy,
+			smoothness: true,
+			speedConsistency: true,
+		});
 	},
 
 	isStrokeRelevant: perspStrokeRelevant,

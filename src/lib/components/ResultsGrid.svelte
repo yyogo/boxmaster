@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { RoundResult } from '$lib/scoring/types';
+	import type { RoundResult, MetricKey, StrokeScore } from '$lib/scoring/types';
+	import { METRIC_KEYS, METRIC_LABELS } from '$lib/scoring/types';
 	import type { ExerciseConfig } from '$lib/exercises/types';
 	import { renderGuides } from '$lib/canvas/guides';
 	import { renderHighlights } from '$lib/canvas/highlights';
@@ -20,6 +21,8 @@
 
 	let canvasRefs: HTMLCanvasElement[] = $state([]);
 	let gridEl: HTMLElement;
+	let hoveredRound: number | null = $state(null);
+	let tooltipPos = $state({ x: 0, y: 0 });
 
 	function scoreColor(val: number): string {
 		if (val >= 80) return '#4ade80';
@@ -47,39 +50,39 @@
 
 	interface Breakdown { label: string; value: number; color: string }
 
-	function computeBreakdown(): Breakdown[] {
-		const allScores = rounds.flatMap((r) => r.strokeScores);
-		if (allScores.length === 0) return [];
+	function metricsFromScores(scores: StrokeScore[]): Breakdown[] {
+		if (scores.length === 0) return [];
+		const items: Breakdown[] = [];
 
-		const avg = (arr: number[]) => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
-
-		const accuracy = avg(allScores.map((s) => s.accuracy));
-		const steadiness = avg(allScores.map((s) => s.flow));
-		const speed = avg(allScores.map((s) => s.speed));
-
-		const confValues = allScores.map((s) => s.confidence).filter((c): c is number => c !== null);
-		const hasConfidence = confValues.length > 0;
-		const confidence = hasConfidence ? avg(confValues) : -1;
-
-		const items: Breakdown[] = [
-			{ label: 'Accuracy', value: accuracy, color: scoreColor(accuracy) },
-			{ label: 'Steadiness', value: steadiness, color: scoreColor(steadiness) },
-			{ label: 'Speed', value: speed, color: scoreColor(speed) }
-		];
-		if (hasConfidence) {
-			items.push({ label: 'Pressure', value: confidence, color: scoreColor(confidence) });
-		}
-		if (allScores.some(s => s.metrics?.pressureMatch != null)) {
-			const pmValues = allScores.map(s => s.metrics?.pressureMatch).filter((v): v is number => v != null);
-			if (pmValues.length > 0) {
-				const pm = avg(pmValues);
-				items.push({ label: 'Pressure Control', value: pm, color: scoreColor(pm) });
-			}
+		for (const key of METRIC_KEYS) {
+			const vals = scores.map(s => s[key]).filter((v): v is number => v != null);
+			if (vals.length === 0) continue;
+			const avg = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+			items.push({ label: METRIC_LABELS[key], value: avg, color: scoreColor(avg) });
 		}
 		return items;
 	}
 
-	let breakdown = $derived(computeBreakdown());
+	let breakdown = $derived(metricsFromScores(rounds.flatMap(r => r.strokeScores)));
+
+	let hoveredBreakdown = $derived.by(() => {
+		if (hoveredRound == null || hoveredRound >= rounds.length) return [];
+		return metricsFromScores(rounds[hoveredRound].strokeScores);
+	});
+
+	function handleCellEnter(e: MouseEvent, idx: number) {
+		hoveredRound = idx;
+		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		const gridRect = gridEl.getBoundingClientRect();
+		tooltipPos = {
+			x: rect.left + rect.width / 2 - gridRect.left,
+			y: rect.top - gridRect.top - 8,
+		};
+	}
+
+	function handleCellLeave() {
+		hoveredRound = null;
+	}
 
 	function renderThumbnail(canvas: HTMLCanvasElement, round: RoundResult) {
 		const ctx = canvas.getContext('2d');
@@ -105,7 +108,6 @@
 		const plugin = getPlugin(ref.type);
 		const shapeBounds = plugin.getBounds(ref.params as Record<string, unknown>);
 
-		// Expand bounds to include user stroke points
 		let minX = shapeBounds.minX, minY = shapeBounds.minY;
 		let maxX = shapeBounds.maxX, maxY = shapeBounds.maxY;
 		for (const p of allPts) {
@@ -196,7 +198,12 @@
 
 	<div class="results-grid">
 		{#each rounds as round, i}
-			<div class="grid-cell">
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div
+				class="grid-cell"
+				onmouseenter={(e) => handleCellEnter(e, i)}
+				onmouseleave={handleCellLeave}
+			>
 				<canvas
 					bind:this={canvasRefs[i]}
 					class="thumb-canvas"
@@ -206,6 +213,20 @@
 				</div>
 			</div>
 		{/each}
+
+		{#if hoveredRound != null && hoveredBreakdown.length > 0}
+			<div class="cell-tooltip" style="left: {tooltipPos.x}px; top: {tooltipPos.y}px;">
+				{#each hoveredBreakdown as item}
+					<div class="tooltip-row">
+						<span class="tooltip-label">{item.label}</span>
+						<div class="tooltip-bar-bg">
+							<div class="tooltip-bar-fill" style="width: {item.value}%; background: {item.color}"></div>
+						</div>
+						<span class="tooltip-value" style="color: {item.color}">{item.value}</span>
+					</div>
+				{/each}
+			</div>
+		{/if}
 	</div>
 
 	<div class="results-actions">
@@ -289,13 +310,14 @@
 		display: flex;
 		gap: 20px;
 		width: 100%;
-		max-width: 480px;
+		max-width: 560px;
 		margin-bottom: 24px;
+		flex-wrap: wrap;
 	}
 
 	.breakdown-item {
-		flex: 1;
-		min-width: 0;
+		flex: 1 1 80px;
+		min-width: 70px;
 	}
 
 	.breakdown-header {
@@ -306,14 +328,14 @@
 	}
 
 	.breakdown-label {
-		font-size: 0.75rem;
+		font-size: 0.7rem;
 		color: #8888aa;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 	}
 
 	.breakdown-value {
-		font-size: 0.85rem;
+		font-size: 0.8rem;
 		font-weight: 600;
 		font-variant-numeric: tabular-nums;
 	}
@@ -331,7 +353,74 @@
 		transition: width 0.6s ease-out;
 	}
 
+	/* --- Hover tooltip --- */
+
+	.cell-tooltip {
+		position: absolute;
+		transform: translate(-50%, -100%);
+		background: rgba(15, 15, 35, 0.95);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: 8px;
+		padding: 8px 12px;
+		min-width: 180px;
+		z-index: 30;
+		pointer-events: none;
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		animation: tooltipIn 0.15s ease-out;
+	}
+
+	@keyframes tooltipIn {
+		from { opacity: 0; transform: translate(-50%, -90%); }
+		to { opacity: 1; transform: translate(-50%, -100%); }
+	}
+
+	.tooltip-row {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		margin-bottom: 3px;
+	}
+
+	.tooltip-row:last-child {
+		margin-bottom: 0;
+	}
+
+	.tooltip-label {
+		font-size: 0.65rem;
+		color: #8888aa;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		min-width: 60px;
+		flex-shrink: 0;
+	}
+
+	.tooltip-bar-bg {
+		flex: 1;
+		height: 4px;
+		border-radius: 2px;
+		background: rgba(255, 255, 255, 0.06);
+		overflow: hidden;
+	}
+
+	.tooltip-bar-fill {
+		height: 100%;
+		border-radius: 2px;
+	}
+
+	.tooltip-value {
+		font-size: 0.7rem;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		min-width: 22px;
+		text-align: right;
+		flex-shrink: 0;
+	}
+
+	/* --- Grid --- */
+
 	.results-grid {
+		position: relative;
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
 		gap: 10px;
@@ -347,6 +436,12 @@
 		border-radius: 8px;
 		overflow: hidden;
 		border: 1px solid rgba(255, 255, 255, 0.06);
+		cursor: default;
+		transition: border-color 0.15s;
+	}
+
+	.grid-cell:hover {
+		border-color: rgba(255, 255, 255, 0.15);
 	}
 
 	.thumb-canvas {
@@ -424,6 +519,10 @@
 
 		.action-btn {
 			text-align: center;
+		}
+
+		.cell-tooltip {
+			display: none;
 		}
 	}
 </style>

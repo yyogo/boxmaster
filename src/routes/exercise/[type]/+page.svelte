@@ -6,7 +6,8 @@
 	import ResultsGrid from '$lib/components/ResultsGrid.svelte';
 	import type { Stroke } from '$lib/input/stroke';
 	import type { ExerciseConfig, ExerciseMode } from '$lib/exercises/types';
-	import type { StrokeScore, ExerciseResult, RoundResult } from '$lib/scoring/types';
+	import type { StrokeScore, ExerciseResult, RoundResult, MetricKey } from '$lib/scoring/types';
+	import { METRIC_KEYS } from '$lib/scoring/types';
 	import type { GuideVisibility } from '$lib/canvas/guides';
 	import type { FadingLayer } from '$lib/canvas/renderer';
 	import '$lib/exercises/init';
@@ -210,6 +211,11 @@
 		startFade();
 	}
 
+	function handleFinish() {
+		if (phase !== 'drawing' || rounds.length === 0) return;
+		finishExercise();
+	}
+
 	function scoreCurrentShape(): { strokeScores: StrokeScore[]; shapeScore: number } {
 		if (!plugin || !exerciseConfig || currentStrokes.length === 0) {
 			return { strokeScores: [], shapeScore: 0 };
@@ -363,6 +369,15 @@
 			const consistency = computeConsistency([...history, { aggregateScore } as ExerciseResult]);
 
 			const allScores = plainRounds.flatMap((r) => r.strokeScores);
+
+			const metricAverages: Partial<Record<MetricKey, number>> = {};
+			for (const key of METRIC_KEYS) {
+				const vals = allScores.map(s => s[key]).filter((v): v is number => v != null);
+				if (vals.length > 0) {
+					metricAverages[key] = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+				}
+			}
+
 			await saveResult({
 				id: `${exerciseType}-${Date.now()}`,
 				timestamp: Date.now(),
@@ -372,6 +387,7 @@
 				strokeCount: plainRounds.reduce((s, r) => s + r.strokes.length, 0),
 				scores: allScores,
 				aggregateScore,
+				metricAverages,
 				consistency
 			});
 		} catch (err) {
@@ -435,6 +451,9 @@
 				break;
 		case 's':
 				if (!e.ctrlKey && !e.metaKey && phase === 'drawing') handleSkip();
+				break;
+			case 'f':
+				if (!e.ctrlKey && !e.metaKey) handleFinish();
 				break;
 			case 't':
 				if (!e.ctrlKey && !e.metaKey) lightTheme = !lightTheme;
@@ -581,6 +600,7 @@
 		<div class="overlay-bottom" class:hidden={isDrawing}>
 			<button class="pill-btn" onclick={handleUndo} disabled={currentStrokes.length === 0 || phase !== 'drawing'}>Undo</button>
 			<button class="pill-btn" onclick={handleSkip} disabled={phase !== 'drawing'} title="Skip (S)">Skip</button>
+			<button class="pill-btn" onclick={handleFinish} disabled={phase !== 'drawing' || rounds.length === 0} title="Finish (F)">Finish</button>
 			<button class="pill-btn" onclick={() => canvasRef?.resetView()} title="Reset view (R)">⟲</button>
 			{#if penDetected}
 				<button

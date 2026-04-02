@@ -3,7 +3,7 @@ import type { StrokePoint, Stroke } from '$lib/input/stroke';
 import type { StrokeScore } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
 import { placeNonOverlapping } from './placement';
-import { defineExercise, buildStrokeScore, getStrokePoints, strokeArcLen, type CoordTransform } from './plugin';
+import { defineExercise, buildMetricScore, getStrokePoints, strokeArcLen, type CoordTransform } from './plugin';
 import { registerExercise } from './registry';
 import { GUIDE_COLOR, HINT_COLOR, drawDot } from './utils';
 
@@ -111,7 +111,13 @@ export const ellipsePlugin = defineExercise({
 
 	scoreStroke(points: StrokePoint[], reference: ReferenceShape): StrokeScore {
 		const p = reference.params as unknown as EllipseParams;
-		return buildStrokeScore(scoreEllipseAccuracy(points, p), points);
+		const perimeter = Math.PI * (3 * (p.rx + p.ry) - Math.sqrt((3 * p.rx + p.ry) * (p.rx + 3 * p.ry)));
+		return buildMetricScore(points, {
+			pathDeviation: scoreEllipseAccuracy(points, p),
+			smoothness: true,
+			speedConsistency: true,
+			closureGap: { perimeter },
+		});
 	},
 
 	isStrokeRelevant(stroke: Stroke, reference: ReferenceShape, _canvasW: number, _canvasH: number, _mode: ExerciseMode): boolean {

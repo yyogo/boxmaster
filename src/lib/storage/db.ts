@@ -2,7 +2,7 @@ import { openDB, type IDBPDatabase } from 'idb';
 import type { ExerciseResult } from '$lib/scoring/types';
 
 const DB_NAME = 'boxmaster';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'results';
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
@@ -10,13 +10,15 @@ let dbPromise: Promise<IDBPDatabase> | null = null;
 function getDb(): Promise<IDBPDatabase> {
 	if (!dbPromise) {
 		dbPromise = openDB(DB_NAME, DB_VERSION, {
-			upgrade(db) {
-				if (!db.objectStoreNames.contains(STORE_NAME)) {
+			upgrade(db, oldVersion) {
+				if (oldVersion < 1) {
 					const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
 					store.createIndex('by-type', 'exerciseType');
 					store.createIndex('by-timestamp', 'timestamp');
 					store.createIndex('by-unit', 'unit');
 				}
+				// v2: metricAverages added to ExerciseResult — no schema change needed,
+				// old records without the field are still valid (Partial<Record>).
 			}
 		});
 	}

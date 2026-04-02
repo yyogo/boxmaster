@@ -2,7 +2,7 @@ import type { ExerciseConfig, ExerciseMode, LineParams, ReferenceShape } from '.
 import type { StrokePoint, Stroke } from '$lib/input/stroke';
 import type { StrokeScore } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
-import { defineExercise, buildStrokeScore, getStrokePoints, strokeChord, strokeArcLen, angleDiff, type CoordTransform } from './plugin';
+import { defineExercise, buildMetricScore, getStrokePoints, strokeChord, strokeArcLen, angleDiff, type CoordTransform } from './plugin';
 import { registerExercise } from './registry';
 import { GUIDE_COLOR, HINT_COLOR, drawDot, randomLine, scoreLineAccuracy, highlightLineDivergent } from './utils';
 
@@ -67,11 +67,20 @@ export const linePlugin = defineExercise({
 	scoreStroke(points: StrokePoint[], reference: ReferenceShape, _strokeIndex: number, mode: ExerciseMode): StrokeScore {
 		const p = reference.params as unknown as LineParams;
 		if (mode === 'free') {
-			return buildStrokeScore(scoreFreeLine(points), points);
+			return buildMetricScore(points, {
+				pathDeviation: scoreFreeLine(points),
+				smoothness: true,
+				speedConsistency: true,
+			});
 		}
-		const accuracy = scoreLineAccuracy(points, p);
 		const extra = highlightLineDivergent(points, p);
-		return buildStrokeScore(accuracy, points, extra);
+		return buildMetricScore(points, {
+			pathDeviation: scoreLineAccuracy(points, p),
+			smoothness: true,
+			speedConsistency: true,
+			endpointAccuracy: { start: { x: p.x1, y: p.y1 }, end: { x: p.x2, y: p.y2 } },
+			extraSegments: extra,
+		});
 	},
 
 	isStrokeRelevant(stroke: Stroke, reference: ReferenceShape, canvasW: number, canvasH: number, mode: ExerciseMode): boolean {

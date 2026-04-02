@@ -3,7 +3,7 @@ import type { StrokePoint, Stroke } from '$lib/input/stroke';
 import type { StrokeScore, ScoredSegment } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
 import { pointToBezierDist, bezierArcLen } from '$lib/scoring/geometry';
-import { defineExercise, buildStrokeScore, getStrokePoints, strokeArcLen, type CoordTransform } from './plugin';
+import { defineExercise, buildMetricScore, getStrokePoints, strokeArcLen, type CoordTransform } from './plugin';
 import { registerExercise } from './registry';
 import { GUIDE_COLOR, HINT_COLOR, drawDot, randomCurve } from './utils';
 
@@ -83,14 +83,13 @@ export const curvePlugin = defineExercise({
 		if (visibility === 'hidden') return;
 
 		const color = visibility === 'full' ? GUIDE_COLOR : HINT_COLOR;
-		const lw = visibility === 'full' ? 2 : 1.5;
 
 		if (visibility === 'full') {
 			ctx.beginPath();
 			ctx.moveTo(p.x1, p.y1);
 			ctx.bezierCurveTo(p.cp1x, p.cp1y, p.cp2x, p.cp2y, p.x2, p.y2);
 			ctx.strokeStyle = color;
-			ctx.lineWidth = lw;
+			ctx.lineWidth = 2;
 			ctx.setLineDash([8, 6]);
 			ctx.stroke();
 			ctx.setLineDash([]);
@@ -102,9 +101,14 @@ export const curvePlugin = defineExercise({
 
 	scoreStroke(points: StrokePoint[], reference: ReferenceShape): StrokeScore {
 		const p = reference.params as unknown as CurveParams;
-		const accuracy = scoreCurveAccuracy(points, p);
 		const extra = highlightDivergent(points, p);
-		return buildStrokeScore(accuracy, points, extra);
+		return buildMetricScore(points, {
+			pathDeviation: scoreCurveAccuracy(points, p),
+			smoothness: true,
+			speedConsistency: true,
+			endpointAccuracy: { start: { x: p.x1, y: p.y1 }, end: { x: p.x2, y: p.y2 } },
+			extraSegments: extra,
+		});
 	},
 
 	isStrokeRelevant(stroke: Stroke, reference: ReferenceShape, canvasW: number, _canvasH: number, _mode: ExerciseMode): boolean {

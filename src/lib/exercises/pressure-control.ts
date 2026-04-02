@@ -5,7 +5,7 @@ import type { GuideVisibility } from '$lib/canvas/guides';
 import { pointToSegmentDist, pointToBezierDist, bezierArcLen, sampleBezier } from '$lib/scoring/geometry';
 import { drawPressureStroke } from '$lib/canvas/renderer';
 import { renderPressureHighlights } from '$lib/canvas/highlights';
-import { defineExercise, buildStrokeScore, getStrokePoints, strokeArcLen, type CoordTransform } from './plugin';
+import { defineExercise, buildMetricScore, getStrokePoints, strokeArcLen, type CoordTransform } from './plugin';
 import { registerExercise } from './registry';
 import { GUIDE_COLOR, HINT_COLOR, drawDot, randomLine, randomCurve, drawTaperedRibbon, projectOntoLine, pressureShapeScore } from './utils';
 
@@ -278,8 +278,15 @@ export const pressureControlPlugin = defineExercise({
 		const accuracy = scoreGeometricAccuracy(points, p);
 		const divergent = highlightDivergent(points, p);
 		const pressure = detectPressureIssues(points, p);
-		const score = buildStrokeScore(accuracy, points, [...divergent, ...pressure], true);
-		return { ...score, metrics: { pressureMatch: scorePressureMatch(points, p) } };
+		return buildMetricScore(points, {
+			pathDeviation: accuracy,
+			smoothness: true,
+			speedConsistency: true,
+			pressureControl: true,
+			taperQuality: { startPressure: p.startPressure, endPressure: p.endPressure },
+			endpointAccuracy: { start: { x: p.x1, y: p.y1 }, end: { x: p.x2, y: p.y2 } },
+			extraSegments: [...divergent, ...pressure],
+		});
 	},
 
 	computeShapeScore: pressureShapeScore,
