@@ -115,10 +115,9 @@ export const rectanglePlugin = defineExercise({
 		const p = reference.params as unknown as RectParams;
 
 		if (mode === 'free') {
-			// Free mode scoring uses the accumulated strokes; handled at shape level via computeShapeScore
-			const flow = scoreFlow(points);
+			const { steadiness, speed } = scoreFlow(points);
 			const confidence = scoreConfidence(points);
-			return { accuracy: 0, flow, confidence, segments: [] };
+			return { accuracy: 0, flow: steadiness, speed, confidence, segments: [] };
 		}
 
 		const edges = rectEdges(p);
@@ -127,22 +126,18 @@ export const rectanglePlugin = defineExercise({
 	},
 
 	computeShapeScore(strokeScores: StrokeScore[]): number {
-		// For free mode, the per-stroke accuracy is 0 — we need to recalculate
-		// If all accuracies are 0, this was likely free mode scored elsewhere
+		if (strokeScores.length === 0) return 0;
 		const hasRealAccuracy = strokeScores.some((s) => s.accuracy > 0);
 		if (hasRealAccuracy) {
-			if (strokeScores.length === 0) return 0;
 			return Math.round(
 				strokeScores.reduce(
-					(s, sc) => s + (sc.accuracy * 0.5 + sc.flow * 0.3 + ((sc.confidence ?? sc.flow) * 0.2)),
+					(s, sc) => s + sc.accuracy * 0.55 + sc.flow * 0.25 + sc.speed * 0.20,
 					0
 				) / strokeScores.length
 			);
 		}
-		// Free mode: flow/confidence average only
-		if (strokeScores.length === 0) return 0;
 		return Math.round(
-			strokeScores.reduce((s, sc) => s + (sc.flow * 0.6 + ((sc.confidence ?? sc.flow) * 0.4)), 0) / strokeScores.length
+			strokeScores.reduce((s, sc) => s + sc.flow * 0.45 + sc.speed * 0.25 + ((sc.confidence ?? sc.flow) * 0.30), 0) / strokeScores.length
 		);
 	},
 

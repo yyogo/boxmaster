@@ -15,6 +15,7 @@
 	import { saveResult, getResultsByType } from '$lib/storage/db';
 	import { computeConsistency } from '$lib/scoring/consistency';
 	import { loadPrefs, updatePrefs } from '$lib/storage/prefs';
+	import { pickTip } from '$lib/tips';
 
 	let exerciseType: string = $derived(page.params.type as string);
 	let plugin = $derived.by(() => {
@@ -51,6 +52,19 @@
 	let timeRemaining = $state(0);
 	let timerInterval: ReturnType<typeof setInterval> | null = null;
 
+	let attemptsPerShape = $state(savedPrefs.attemptsPerShape);
+	let currentAttempt = $state(0);
+	let attemptStrokes: Stroke[] = $state([]);
+	let attemptScores: { strokeScores: StrokeScore[]; shapeScore: number; strokes: Stroke[] }[] = $state([]);
+	let isSingleStroke = $derived(plugin ? plugin.requiredStrokes === 1 : false);
+
+	let tipText = $state('');
+	let tipVisible = $state(false);
+	let tipShownIndices = new Set<number>();
+	let tipTimeout: ReturnType<typeof setTimeout> | null = null;
+	const TIP_SHOW_EVERY = 3;
+	const TIP_DISPLAY_MS = 6000;
+
 	$effect(() => {
 		exerciseType; // track only this
 		untrack(() => {
@@ -68,6 +82,7 @@
 		updatePrefs({
 			lightTheme,
 			totalShapes,
+			attemptsPerShape,
 			timerMode,
 			timerSeconds,
 			penOnly,
@@ -98,6 +113,16 @@
 		return plugin.generate(mode, w, h, toWorld);
 	}
 
+	function showNextTip() {
+		const recent = rounds.slice(-4).flatMap(r => r.strokeScores);
+		const { text, index } = pickTip(exerciseType, recent, tipShownIndices);
+		tipShownIndices.add(index);
+		tipText = text;
+		tipVisible = true;
+		if (tipTimeout) clearTimeout(tipTimeout);
+		tipTimeout = setTimeout(() => { tipVisible = false; }, TIP_DISPLAY_MS);
+	}
+
 	function resetExercise() {
 		if (!plugin) return;
 		if (!plugin.availableModes.includes(mode)) mode = plugin.availableModes[0];
@@ -112,11 +137,19 @@
 		exerciseStartTime = 0;
 		totalTime = 0;
 		session = null;
+		currentAttempt = 0;
+		attemptStrokes = [];
+		attemptScores = [];
+		tipText = '';
+		tipVisible = false;
+		tipShownIndices = new Set();
+		if (tipTimeout) clearTimeout(tipTimeout);
 		guideVisibility = modeForVisibility();
 		canvasRef?.resetView();
 
 		stopTimer();
 		exerciseConfig = generateNextShape();
+		showNextTip();
 	}
 
 	function handleModeChange(newMode: ExerciseMode) {
@@ -199,15 +232,67 @@
 		const { strokeScores, shapeScore } = scoreCurrentShape();
 		currentScores = strokeScores;
 
-		const round: RoundResult = {
-			reference: exerciseConfig!.references[0],
-			strokes: [...currentStrokes],
-			strokeScores,
-			shapeScore
-		};
-		rounds = [...rounds, round];
+		const hasMoreAttempts = isSingleStroke && attemptsPerShape > 1 && currentAttempt + 1 < attemptsPerShape;
 
+		if (hasMoreAttempts) {
+			attemptScores = [...attemptScores, { strokeScores, shapeScore, strokes: [...currentStrokes] }];
+			currentAttempt++;
+			fadeAttemptStroke();
+			return;
+		}
+
+		// Last attempt (or non-attempt exercise): pick the best result
+		if (isSingleStroke && attemptsPerShape > 1) {
+			attemptScores = [...attemptScores, { strokeScores, shapeScore, strokes: [...currentStrokes] }];
+			const best = attemptScores.reduce((a, b) => b.shapeScore > a.shapeScore ? b : a);
+			const round: RoundResult = {
+				reference: exerciseConfig!.references[0],
+				strokes: best.strokes,
+				strokeScores: best.strokeScores,
+				shapeScore: best.shapeScore
+			};
+			rounds = [...rounds, round];
+		} else {
+			const round: RoundResult = {
+				reference: exerciseConfig!.references[0],
+				strokes: [...currentStrokes],
+				strokeScores,
+				shapeScore
+			};
+			rounds = [...rounds, round];
+		}
+
+		currentAttempt = 0;
+		attemptScores = [];
+		attemptStrokes = [];
 		startFade();
+	}
+
+	function fadeAttemptStroke() {
+		fadingLayer = {
+			config: exerciseConfig!,
+			strokes: [...currentStrokes],
+			scores: currentScores,
+			alpha: 1,
+			guideVisibility: 'hidden'
+		};
+		currentStrokes = [];
+		currentScores = null;
+		phase = 'drawing';
+
+		const fadeStart = performance.now();
+		const fadeDuration = 600;
+		function tick(now: number) {
+			const elapsed = now - fadeStart;
+			const alpha = Math.max(0, 1 - elapsed / fadeDuration);
+			if (fadingLayer) fadingLayer = { ...fadingLayer, alpha };
+			if (elapsed < fadeDuration) {
+				requestAnimationFrame(tick);
+			} else {
+				fadingLayer = null;
+			}
+		}
+		requestAnimationFrame(tick);
 	}
 
 	function startFade() {
@@ -230,10 +315,17 @@
 		roundIndex = nextIndex;
 		currentStrokes = [];
 		currentScores = null;
+		currentAttempt = 0;
+		attemptScores = [];
+		attemptStrokes = [];
 		guideVisibility = modeForVisibility();
 
 		exerciseConfig = generateNextShape();
 		phase = 'drawing';
+
+		if (roundIndex % TIP_SHOW_EVERY === 0) {
+			showNextTip();
+		}
 
 		const fadeStart = performance.now();
 		const fadeDuration = 800;
@@ -436,6 +528,20 @@
 					<span class="count-label">{totalShapes}</span>
 				</div>
 
+				{#if isSingleStroke}
+					<div class="count-control">
+						<input
+							type="range"
+							min="1"
+							max="5"
+							bind:value={attemptsPerShape}
+							disabled={hasStarted}
+							class="count-slider"
+						/>
+						<span class="count-label">{attemptsPerShape}x</span>
+					</div>
+				{/if}
+
 				{#if timerMode}
 					<button
 						class="pill-btn active"
@@ -461,7 +567,9 @@
 					</span>
 				{/if}
 
-				<span class="stroke-count">{roundIndex + 1} / {totalShapes}</span>
+				<span class="stroke-count">
+					{roundIndex + 1}/{totalShapes}{#if isSingleStroke && attemptsPerShape > 1}&nbsp;·&nbsp;{currentAttempt + 1}/{attemptsPerShape}{/if}
+				</span>
 
 				<button class="pill-btn icon" onclick={() => lightTheme = !lightTheme} title="Toggle theme (T)">
 					{lightTheme ? '◑' : '◐'}
@@ -483,6 +591,13 @@
 				>✏️</button>
 			{/if}
 		</div>
+
+		<!-- Tip banner -->
+		{#if tipText}
+			<div class="tip-banner" class:visible={tipVisible && !isDrawing}>
+				{tipText}
+			</div>
+		{/if}
 
 		<!-- Live score flash -->
 		{#if rounds.length > 0 && phase === 'drawing'}
@@ -752,6 +867,40 @@
 	@keyframes pulse {
 		0%, 100% { opacity: 1; }
 		50% { opacity: 0.5; }
+	}
+
+	/* --- Tip banner --- */
+
+	.tip-banner {
+		position: absolute;
+		bottom: 72px;
+		left: 50%;
+		transform: translateX(-50%);
+		max-width: min(520px, calc(100% - 40px));
+		padding: 8px 18px;
+		border-radius: 12px;
+		background: rgba(20, 20, 40, 0.75);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		color: rgba(200, 200, 230, 0.85);
+		font-size: 0.78rem;
+		line-height: 1.45;
+		text-align: center;
+		z-index: 9;
+		pointer-events: none;
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		opacity: 0;
+		transition: opacity 0.5s ease;
+	}
+
+	.tip-banner.visible {
+		opacity: 1;
+	}
+
+	:global(.exercise-container.light) .tip-banner {
+		background: rgba(240, 240, 248, 0.8);
+		border-color: rgba(0, 0, 0, 0.08);
+		color: rgba(60, 60, 80, 0.9);
 	}
 
 	/* --- Live score flash --- */

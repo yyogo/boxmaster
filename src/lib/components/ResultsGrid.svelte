@@ -54,7 +54,8 @@
 		const avg = (arr: number[]) => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
 
 		const accuracy = avg(allScores.map((s) => s.accuracy));
-		const flow = avg(allScores.map((s) => s.flow));
+		const steadiness = avg(allScores.map((s) => s.flow));
+		const speed = avg(allScores.map((s) => s.speed));
 
 		const confValues = allScores.map((s) => s.confidence).filter((c): c is number => c !== null);
 		const hasConfidence = confValues.length > 0;
@@ -62,7 +63,8 @@
 
 		const items: Breakdown[] = [
 			{ label: 'Accuracy', value: accuracy, color: scoreColor(accuracy) },
-			{ label: 'Flow', value: flow, color: scoreColor(flow) }
+			{ label: 'Steadiness', value: steadiness, color: scoreColor(steadiness) },
+			{ label: 'Speed', value: speed, color: scoreColor(speed) }
 		];
 		if (hasConfidence) {
 			items.push({ label: 'Pressure', value: confidence, color: scoreColor(confidence) });

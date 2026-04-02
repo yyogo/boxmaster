@@ -9,7 +9,10 @@ export interface ScoredSegment {
 
 export interface StrokeScore {
 	accuracy: number;
+	/** Steadiness — how smooth/even the stroke velocity was */
 	flow: number;
+	/** Normalized speed score */
+	speed: number;
 	confidence: number | null;
 	segments: ScoredSegment[];
 	metrics?: Record<string, number>;

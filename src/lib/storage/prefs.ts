@@ -5,6 +5,7 @@ const KEY = 'boxmaster-prefs';
 export interface UserPrefs {
 	lightTheme: boolean;
 	totalShapes: number;
+	attemptsPerShape: number;
 	timerMode: boolean;
 	timerSeconds: number;
 	penOnly: boolean;
@@ -15,6 +16,7 @@ export interface UserPrefs {
 const DEFAULTS: UserPrefs = {
 	lightTheme: true,
 	totalShapes: 20,
+	attemptsPerShape: 3,
 	timerMode: false,
 	timerSeconds: 60,
 	penOnly: false,

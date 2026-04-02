@@ -111,7 +111,7 @@ export const constantPressurePlugin = defineExercise({
 		const accuracy = scoreLineAccuracy(points, p);
 		const divergent = highlightLineDivergent(points, p);
 		const pressure = detectPressureInconsistency(points);
-		const score = buildStrokeScore(accuracy, points, [...divergent, ...pressure]);
+		const score = buildStrokeScore(accuracy, points, [...divergent, ...pressure], true);
 		return { ...score, metrics: { pressureMatch: scorePressureConstancy(points) } };
 	},
 

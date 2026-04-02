@@ -124,7 +124,7 @@ export const taperPlugin = defineExercise({
 		const accuracy = scoreLineAccuracy(points, p);
 		const divergent = highlightLineDivergent(points, p);
 		const pressure = detectPressureDeviation(points, p);
-		const score = buildStrokeScore(accuracy, points, [...divergent, ...pressure]);
+		const score = buildStrokeScore(accuracy, points, [...divergent, ...pressure], true);
 		return { ...score, metrics: { pressureMatch: scoreTaperMatch(points, p) } };
 	},
 

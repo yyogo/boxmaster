@@ -107,12 +107,12 @@ export type ExercisePluginConfig = Omit<
 export function defaultShapeScore(strokeScores: StrokeScore[]): number {
   if (strokeScores.length === 0) return 0;
   return Math.round(
-    strokeScores.reduce(
-      (s, sc) =>
-        s +
-        (sc.accuracy * 0.5 + sc.flow * 0.3 + (sc.confidence ?? sc.flow) * 0.2),
-      0,
-    ) / strokeScores.length,
+    strokeScores.reduce((s, sc) => {
+      if (sc.confidence != null) {
+        return s + sc.accuracy * 0.45 + sc.flow * 0.2 + sc.speed * 0.15 + sc.confidence * 0.2;
+      }
+      return s + sc.accuracy * 0.55 + sc.flow * 0.25 + sc.speed * 0.20;
+    }, 0) / strokeScores.length,
   );
 }
 
@@ -151,9 +151,10 @@ export function buildStrokeScore(
   accuracy: number,
   points: StrokePoint[],
   extraSegments: ScoredSegment[] = [],
+  pressure: boolean = false,
 ): StrokeScore {
-  const flow = scoreFlow(points);
-  const confidence = scoreConfidence(points);
+  const { steadiness, speed } = scoreFlow(points);
+  const confidence = pressure ? scoreConfidence(points) : null;
 
   const segments: ScoredSegment[] = [...extraSegments];
 
@@ -173,16 +174,18 @@ export function buildStrokeScore(
       severity: 0.6,
     });
   }
-  for (const s of detectPressureSpikes(points)) {
-    segments.push({
-      startIdx: s.start,
-      endIdx: s.end,
-      issue: "pressure_spike",
-      severity: 0.5,
-    });
+  if (pressure) {
+    for (const s of detectPressureSpikes(points)) {
+      segments.push({
+        startIdx: s.start,
+        endIdx: s.end,
+        issue: "pressure_spike",
+        severity: 0.5,
+      });
+    }
   }
 
-  return { accuracy, flow, confidence, segments };
+  return { accuracy, flow: steadiness, speed, confidence, segments };
 }
 
 export function defineExercise(config: ExercisePluginConfig): ExercisePlugin {

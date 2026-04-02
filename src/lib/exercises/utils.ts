@@ -221,7 +221,7 @@ export function pressureShapeScore(strokeScores: StrokeScore[]): number {
 	return Math.round(
 		strokeScores.reduce((s, sc) => {
 			const pm = sc.metrics?.pressureMatch ?? sc.flow;
-			return s + (sc.accuracy * 0.25 + sc.flow * 0.15 + pm * 0.6);
+			return s + (sc.accuracy * 0.20 + sc.flow * 0.10 + sc.speed * 0.10 + pm * 0.6);
 		}, 0) / strokeScores.length
 	);
 }

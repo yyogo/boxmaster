@@ -278,7 +278,7 @@ export const pressureControlPlugin = defineExercise({
 		const accuracy = scoreGeometricAccuracy(points, p);
 		const divergent = highlightDivergent(points, p);
 		const pressure = detectPressureIssues(points, p);
-		const score = buildStrokeScore(accuracy, points, [...divergent, ...pressure]);
+		const score = buildStrokeScore(accuracy, points, [...divergent, ...pressure], true);
 		return { ...score, metrics: { pressureMatch: scorePressureMatch(points, p) } };
 	},
 

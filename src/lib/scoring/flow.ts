@@ -1,57 +1,114 @@
 import type { StrokePoint } from '$lib/input/stroke';
 
 /**
- * Score stroke flow based on two factors:
- * 1. Consistency — low coefficient of variation in velocity (40% weight)
- * 2. Speed — strokes should be drawn with confidence, not slow/cautious tracing.
- *    We measure px/ms and map it through a curve where:
- *      < 0.15 px/ms ≈ too slow (heavy penalty)
- *      ~ 0.4–1.5 px/ms ≈ confident (full score)
- *      > 2.5 px/ms ≈ rushed (mild penalty)
+ * Returns both sub-scores so callers can store them separately.
  */
-export function scoreFlow(points: StrokePoint[]): number {
-	if (points.length < 3) return 100;
+export function scoreFlow(points: StrokePoint[]): { steadiness: number; speed: number } {
+	return {
+		steadiness: scoreSteadiness(points),
+		speed: scoreSpeed(points),
+	};
+}
 
-	const velocities: number[] = [];
-	let totalDist = 0;
+/**
+ * Steadiness — how smooth/even the stroke velocity is (CV-based).
+ * Low CV → high score.  Does NOT penalise absolute speed.
+ *
+ * We smooth raw velocities with a moving-average window to remove
+ * digitizer noise, and trim the first/last 15% of the stroke where
+ * natural acceleration/deceleration would unfairly inflate CV.
+ */
+export function scoreSteadiness(points: StrokePoint[]): number {
+	if (points.length < 5) return 100;
+
+	const rawVel: number[] = [];
 	for (let i = 1; i < points.length; i++) {
 		const dx = points[i].x - points[i - 1].x;
 		const dy = points[i].y - points[i - 1].y;
-		const seg = Math.sqrt(dx * dx + dy * dy);
-		totalDist += seg;
 		const dt = points[i].timestamp - points[i - 1].timestamp;
-		if (dt > 0) {
-			velocities.push(seg / dt);
-		}
+		if (dt > 0) rawVel.push(Math.sqrt(dx * dx + dy * dy) / dt);
 	}
 
-	if (velocities.length < 2) return 100;
+	if (rawVel.length < 4) return 100;
+
+	// Moving-average smooth (window = 5) to reduce digitizer jitter
+	const W = Math.min(5, Math.floor(rawVel.length / 2));
+	const smoothed: number[] = [];
+	for (let i = 0; i < rawVel.length; i++) {
+		const lo = Math.max(0, i - Math.floor(W / 2));
+		const hi = Math.min(rawVel.length, i + Math.ceil(W / 2));
+		let sum = 0;
+		for (let j = lo; j < hi; j++) sum += rawVel[j];
+		smoothed.push(sum / (hi - lo));
+	}
+
+	// Trim first/last 15% — acceleration/deceleration at endpoints is natural
+	const trim = Math.max(1, Math.floor(smoothed.length * 0.15));
+	const mid = smoothed.slice(trim, smoothed.length - trim);
+	const velocities = mid.length >= 3 ? mid : smoothed;
 
 	const mean = velocities.reduce((a, b) => a + b, 0) / velocities.length;
 	if (mean === 0) return 0;
 
-	// Consistency component (0–100)
 	const variance =
 		velocities.reduce((sum, v) => sum + (v - mean) ** 2, 0) / velocities.length;
 	const cv = Math.sqrt(variance) / mean;
-	const consistencyScore = Math.max(0, Math.min(100, 100 - cv * 50));
 
-	// Speed component (0–100)
-	const totalTime = points[points.length - 1].timestamp - points[0].timestamp;
-	const avgSpeed = totalTime > 0 ? totalDist / totalTime : 0; // px/ms
-	const speedScore = speedCurve(avgSpeed);
-
-	return Math.round(consistencyScore * 0.5 + speedScore * 0.5);
+	// Gentler curve: CV of 0 → 100, CV of ~0.8 → 75, CV of ~1.5 → 50
+	return Math.round(Math.max(0, Math.min(100, 100 - cv * 33)));
 }
 
-/** Maps average speed (px/ms) to a 0–100 score. */
-function speedCurve(speed: number): number {
-	if (speed < 0.05) return 0;
-	if (speed < 0.15) return lerp(0, 40, (speed - 0.05) / 0.1);
-	if (speed < 0.35) return lerp(40, 85, (speed - 0.15) / 0.2);
-	if (speed <= 1.8) return lerp(85, 100, Math.min(1, (speed - 0.35) / 0.5));
-	if (speed <= 3.0) return lerp(100, 70, (speed - 1.8) / 1.2);
-	return Math.max(30, lerp(70, 30, (speed - 3.0) / 3.0));
+/**
+ * Speed — whether the stroke was drawn with confident speed vs cautious tracing.
+ * Normalised so short/long and open/closed strokes are comparable.
+ *
+ * For open strokes (chord ≥ 40% of arc) we use chord as the reference length.
+ * For closed/looping strokes (circles, ellipses, curves that double back)
+ * we use the arc length itself — otherwise the near-zero chord blows up the ratio.
+ *
+ *   < 0.3 ref-lengths/sec → low
+ *   0.5 – 3 ref-lengths/sec → full
+ *   > 5 ref-lengths/sec → mild penalty
+ */
+export function scoreSpeed(points: StrokePoint[], strokeLength?: number): number {
+	if (points.length < 2) return 100;
+
+	let totalDist = 0;
+	for (let i = 1; i < points.length; i++) {
+		const dx = points[i].x - points[i - 1].x;
+		const dy = points[i].y - points[i - 1].y;
+		totalDist += Math.sqrt(dx * dx + dy * dy);
+	}
+
+	if (totalDist < 1) return 100;
+
+	const chord = strokeLength ?? (() => {
+		const dx = points[points.length - 1].x - points[0].x;
+		const dy = points[points.length - 1].y - points[0].y;
+		return Math.sqrt(dx * dx + dy * dy);
+	})();
+
+	// For closed shapes (circle, ellipse) chord ≈ 0 — use arc length as reference
+	const refLength = (chord > totalDist * 0.4) ? chord : totalDist;
+
+	const totalTime = (points[points.length - 1].timestamp - points[0].timestamp) / 1000;
+	if (totalTime <= 0) return 100;
+
+	const normalizedSpeed = (totalDist / refLength) / totalTime;
+
+	return Math.round(speedCurve(normalizedSpeed));
+}
+
+/**
+ * Maps normalised speed (stroke-lengths/sec) to 0–100.
+ */
+function speedCurve(slps: number): number {
+	if (slps < 0.1) return 0;
+	if (slps < 0.3) return lerp(0, 40, (slps - 0.1) / 0.2);
+	if (slps < 0.5) return lerp(40, 85, (slps - 0.3) / 0.2);
+	if (slps <= 3.0) return lerp(85, 100, Math.min(1, (slps - 0.5) / 1.0));
+	if (slps <= 5.0) return lerp(100, 75, (slps - 3.0) / 2.0);
+	return Math.max(30, lerp(75, 30, (slps - 5.0) / 5.0));
 }
 
 function lerp(a: number, b: number, t: number): number {
