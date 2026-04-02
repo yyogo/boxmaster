@@ -1,8 +1,7 @@
-export type Unit = 'basic-shapes' | 'perspective';
-export type ShapeType = 'line' | 'circle' | 'ellipse' | 'rectangle';
-export type PerspectiveExerciseType = '1-point-box';
-export type ExerciseType = ShapeType | PerspectiveExerciseType;
 export type ExerciseMode = 'guided' | 'semi-guided' | 'free';
+
+// Concrete param types for built-in exercises.
+// Plugins define their own params internally and cast as needed.
 
 export interface LineParams {
 	x1: number;
@@ -45,27 +44,17 @@ export interface PerspectiveBoxParams {
 	expectedEdges: LineParams[];
 }
 
-export type ShapeParams = LineParams | CircleParams | EllipseParams | RectParams | PerspectiveBoxParams;
-
 export interface ReferenceShape {
-	type: ExerciseType;
-	params: ShapeParams;
+	type: string;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	params: any;
 }
 
 export interface ExerciseConfig {
-	unit: Unit;
-	type: ExerciseType;
+	unit: string;
+	type: string;
 	mode: ExerciseMode;
 	strokeCount: number;
 	references: ReferenceShape[];
 	availableModes: ExerciseMode[];
-}
-
-export interface ExerciseDefinition {
-	unit: Unit;
-	type: ExerciseType;
-	label: string;
-	description: string;
-	availableModes: ExerciseMode[];
-	defaultStrokeCount: number;
 }

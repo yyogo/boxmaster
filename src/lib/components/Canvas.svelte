@@ -4,7 +4,8 @@
 	import type { ExerciseConfig } from '$lib/exercises/types';
 	import type { StrokeScore } from '$lib/scoring/types';
 	import type { GuideVisibility } from '$lib/canvas/guides';
-	import { identityTransform, type ViewTransform } from '$lib/canvas/transform';
+	import { identityTransform, screenToWorld, type ViewTransform } from '$lib/canvas/transform';
+	import type { CoordTransform } from '$lib/exercises/plugin';
 	import {
 		createPointerState,
 		handlePointerDown,
@@ -21,10 +22,12 @@
 		scores: StrokeScore[] | null;
 		fadingLayer?: FadingLayer | null;
 		inputEnabled?: boolean;
+		penOnly?: boolean;
 		bgColor?: string;
 		onStrokeComplete?: (stroke: Stroke) => void;
 		onStrokeStart?: () => void;
 		onStrokeEnd?: () => void;
+		onPenDetected?: () => void;
 	}
 
 	let {
@@ -34,10 +37,12 @@
 		scores = null,
 		fadingLayer = null,
 		inputEnabled = true,
+		penOnly = false,
 		bgColor,
 		onStrokeComplete,
 		onStrokeStart,
-		onStrokeEnd
+		onStrokeEnd,
+		onPenDetected
 	}: Props = $props();
 
 	let canvasEl: HTMLCanvasElement;
@@ -52,9 +57,8 @@
 		return { x: rect.width / 2, y: rect.height / 2 };
 	}
 
-	function toCanvasCoords(clientX: number, clientY: number) {
-		const rect = canvasEl.getBoundingClientRect();
-		return { x: clientX - rect.left, y: clientY - rect.top };
+	function toCanvasCoords(e: PointerEvent) {
+		return { x: e.offsetX, y: e.offsetY };
 	}
 
 	const callbacks = {
@@ -75,7 +79,11 @@
 			currentStroke = null;
 		},
 		onPan: (dx: number, dy: number) => {
-			transform = { ...transform, panX: transform.panX + dx, panY: transform.panY + dy };
+			const cos = Math.cos(-transform.rotation);
+			const sin = Math.sin(-transform.rotation);
+			const rdx = cos * dx - sin * dy;
+			const rdy = sin * dx + cos * dy;
+			transform = { ...transform, panX: transform.panX + rdx, panY: transform.panY + rdy };
 		},
 		onRotate: (dAngle: number) => {
 			transform = { ...transform, rotation: transform.rotation + dAngle };
@@ -85,8 +93,28 @@
 		toCanvasCoords
 	};
 
+	let penSeen = false;
+
 	function onPointerDown(e: PointerEvent) {
 		if (!inputEnabled) return;
+
+		if (e.pointerType === 'pen' && !penSeen) {
+			penSeen = true;
+			onPenDetected?.();
+		}
+
+		// In pen-only mode, single-finger touch becomes pan instead of draw
+		if (penOnly && e.pointerType === 'touch' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+			canvasEl.setPointerCapture(e.pointerId);
+			const next = { ...pointerState, activePointers: new Map(pointerState.activePointers) };
+			const pos = toCanvasCoords(e);
+			next.activePointers.set(e.pointerId, pos);
+			next.mode = 'pan';
+			next.prevMidpoint = pos;
+			pointerState = next;
+			return;
+		}
+
 		canvasEl.setPointerCapture(e.pointerId);
 		pointerState = handlePointerDown(pointerState, e, callbacks);
 	}
@@ -107,6 +135,12 @@
 
 	export function resetView() {
 		transform = identityTransform();
+	}
+
+	export function getToWorld(): CoordTransform {
+		const t = transform;
+		const c = getCenter();
+		return (x: number, y: number) => screenToWorld({ x, y }, t, c);
 	}
 
 	function resizeCanvas() {
@@ -139,6 +173,8 @@
 		animFrame = requestAnimationFrame(renderLoop);
 	}
 
+	function preventTouch(e: TouchEvent) { e.preventDefault(); }
+
 	onMount(() => {
 		ctx = canvasEl.getContext('2d');
 		resizeCanvas();
@@ -146,11 +182,21 @@
 		const resizeObs = new ResizeObserver(() => resizeCanvas());
 		resizeObs.observe(canvasEl);
 
+		// iOS ignores touch-action:none CSS — must preventDefault on touch events directly
+		canvasEl.addEventListener('touchstart', preventTouch, { passive: false });
+		canvasEl.addEventListener('touchmove', preventTouch, { passive: false });
+		canvasEl.addEventListener('touchend', preventTouch, { passive: false });
+		canvasEl.addEventListener('touchcancel', preventTouch, { passive: false });
+
 		animFrame = requestAnimationFrame(renderLoop);
 
 		return () => {
 			cancelAnimationFrame(animFrame);
 			resizeObs.disconnect();
+			canvasEl.removeEventListener('touchstart', preventTouch);
+			canvasEl.removeEventListener('touchmove', preventTouch);
+			canvasEl.removeEventListener('touchend', preventTouch);
+			canvasEl.removeEventListener('touchcancel', preventTouch);
 		};
 	});
 </script>

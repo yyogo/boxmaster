@@ -1,12 +1,6 @@
 <script lang="ts">
-	import type { ExerciseDefinition } from '$lib/exercises/types';
-	import {
-		lineDefinition,
-		circleDefinition,
-		ellipseDefinition,
-		rectangleDefinition,
-		perspectiveDefinition
-	} from '$lib/exercises/generator';
+	import '$lib/exercises/init';
+	import { getPluginsByUnit } from '$lib/exercises/registry';
 
 	interface Props {
 		onSelect: (type: string) => void;
@@ -14,69 +8,59 @@
 
 	let { onSelect }: Props = $props();
 
-	const basicShapes: ExerciseDefinition[] = [
-		lineDefinition,
-		circleDefinition,
-		ellipseDefinition,
-		rectangleDefinition
-	];
+	const unitOrder = ['basic-shapes', 'perspective'];
+	const unitLabels: Record<string, string> = {
+		'basic-shapes': 'Basic Shapes',
+		perspective: 'Perspective'
+	};
 
-	const perspectiveExercises: ExerciseDefinition[] = [perspectiveDefinition];
-
-	function iconFor(type: string): string {
-		switch (type) {
-			case 'line':
-				return '╱';
-			case 'circle':
-				return '○';
-			case 'ellipse':
-				return '⬮';
-			case 'rectangle':
-				return '▭';
-			case '1-point-box':
-				return '⬟';
-			default:
-				return '?';
-		}
-	}
+	const byUnit = getPluginsByUnit();
 </script>
 
 <div class="picker">
-	<section class="unit">
-		<h2 class="unit-title">Basic Shapes</h2>
-		<div class="exercise-grid">
-			{#each basicShapes as ex}
-				<button class="exercise-card" onclick={() => onSelect(ex.type)}>
-					<div class="card-icon">{iconFor(ex.type)}</div>
-					<h3 class="card-title">{ex.label}</h3>
-					<p class="card-desc">{ex.description}</p>
-					<div class="card-modes">
-						{#each ex.availableModes as m}
-							<span class="mode-tag">{m}</span>
-						{/each}
-					</div>
-				</button>
-			{/each}
-		</div>
-	</section>
+	{#each unitOrder as unit}
+		{@const plugins = byUnit.get(unit) ?? []}
+		{#if plugins.length > 0}
+			<section class="unit">
+				<h2 class="unit-title">{unitLabels[unit] ?? unit}</h2>
+				<div class="exercise-grid">
+					{#each plugins as ex}
+						<button class="exercise-card" onclick={() => onSelect(ex.id)}>
+							<div class="card-icon">{ex.icon}</div>
+							<h3 class="card-title">{ex.label}</h3>
+							<p class="card-desc">{ex.description}</p>
+							<div class="card-modes">
+								{#each ex.availableModes as m}
+									<span class="mode-tag">{m}</span>
+								{/each}
+							</div>
+						</button>
+					{/each}
+				</div>
+			</section>
+		{/if}
+	{/each}
 
-	<section class="unit">
-		<h2 class="unit-title">Perspective</h2>
-		<div class="exercise-grid">
-			{#each perspectiveExercises as ex}
-				<button class="exercise-card" onclick={() => onSelect(ex.type)}>
-					<div class="card-icon">{iconFor(ex.type)}</div>
-					<h3 class="card-title">{ex.label}</h3>
-					<p class="card-desc">{ex.description}</p>
-					<div class="card-modes">
-						{#each ex.availableModes as m}
-							<span class="mode-tag">{m}</span>
-						{/each}
-					</div>
-				</button>
-			{/each}
-		</div>
-	</section>
+	{#each [...byUnit.keys()].filter((u) => !unitOrder.includes(u)) as unit}
+		{@const plugins = byUnit.get(unit) ?? []}
+		<section class="unit">
+			<h2 class="unit-title">{unitLabels[unit] ?? unit}</h2>
+			<div class="exercise-grid">
+				{#each plugins as ex}
+					<button class="exercise-card" onclick={() => onSelect(ex.id)}>
+						<div class="card-icon">{ex.icon}</div>
+						<h3 class="card-title">{ex.label}</h3>
+						<p class="card-desc">{ex.description}</p>
+						<div class="card-modes">
+							{#each ex.availableModes as m}
+								<span class="mode-tag">{m}</span>
+							{/each}
+						</div>
+					</button>
+				{/each}
+			</div>
+		</section>
+	{/each}
 </div>
 
 <style>

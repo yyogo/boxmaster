@@ -1,10 +1,11 @@
 import type { Stroke } from '$lib/input/stroke';
-import type { ExerciseConfig, PerspectiveBoxParams } from '$lib/exercises/types';
+import type { ExerciseConfig } from '$lib/exercises/types';
 import type { ViewTransform } from './transform';
 import type { StrokeScore } from '$lib/scoring/types';
 import { applyTransform, worldToScreen } from './transform';
 import { renderGuides, type GuideVisibility } from './guides';
 import { renderHighlights } from './highlights';
+import { getPlugin } from '$lib/exercises/registry';
 
 export interface FadingLayer {
 	config: ExerciseConfig;
@@ -41,7 +42,6 @@ export function render(
 	ctx.save();
 	applyTransform(ctx, state.transform, center);
 
-	// Fading layer (old shape + strokes, fading out)
 	if (state.fadingLayer && state.fadingLayer.alpha > 0) {
 		const fl = state.fadingLayer;
 		ctx.save();
@@ -58,12 +58,10 @@ export function render(
 		ctx.restore();
 	}
 
-	// Current guides (new shape, at full alpha)
 	if (state.exerciseConfig) {
 		renderGuides(ctx, state.exerciseConfig, state.guideVisibility);
 	}
 
-	// Current strokes
 	for (let i = 0; i < state.strokes.length; i++) {
 		const score = state.scores?.[i] ?? null;
 		if (score) {
@@ -107,33 +105,8 @@ function drawStroke(
 
 function getShapeCenter(config: ExerciseConfig): { x: number; y: number } | null {
 	if (!config.references.length) return null;
-	const params = config.references[0].params;
-
-	if ('givenCorner' in params) {
-		const bp = params as PerspectiveBoxParams;
-		const pts = [
-			bp.givenCorner,
-			{ x: bp.givenEdges.horizontal.x2, y: bp.givenEdges.horizontal.y2 },
-			{ x: bp.givenEdges.vertical.x2, y: bp.givenEdges.vertical.y2 },
-			{ x: bp.givenEdges.depth.x2, y: bp.givenEdges.depth.y2 },
-			...bp.expectedEdges.flatMap((e) => [{ x: e.x1, y: e.y1 }, { x: e.x2, y: e.y2 }])
-		];
-		return {
-			x: pts.reduce((s, p) => s + p.x, 0) / pts.length,
-			y: pts.reduce((s, p) => s + p.y, 0) / pts.length
-		};
-	}
-	if ('w' in params && 'cx' in params) {
-		return { x: (params as { cx: number; cy: number }).cx, y: (params as { cx: number; cy: number }).cy };
-	}
-	if ('cx' in params && 'cy' in params) {
-		return { x: (params as { cx: number; cy: number }).cx, y: (params as { cx: number; cy: number }).cy };
-	}
-	if ('x1' in params && 'x2' in params) {
-		const lp = params as { x1: number; y1: number; x2: number; y2: number };
-		return { x: (lp.x1 + lp.x2) / 2, y: (lp.y1 + lp.y2) / 2 };
-	}
-	return null;
+	const plugin = getPlugin(config.type);
+	return plugin.getCenter(config.references[0].params as Record<string, unknown>);
 }
 
 function renderOffscreenIndicator(
@@ -159,7 +132,6 @@ function renderOffscreenIndicator(
 	const dy = screen.y - center.y;
 	if (dx === 0 && dy === 0) return;
 
-	// Ray from viewport center toward shape; intersect with viewport edges
 	let t = Infinity;
 	if (dx > 0) t = Math.min(t, (viewW - pad - center.x) / dx);
 	else if (dx < 0) t = Math.min(t, (pad - center.x) / dx);
@@ -185,7 +157,6 @@ function renderOffscreenIndicator(
 	ctx.fillStyle = isLight ? 'rgba(76, 110, 245, 0.75)' : 'rgba(100, 160, 255, 0.75)';
 	ctx.fill();
 
-	// Pulsing ring behind the arrow for visibility
 	ctx.beginPath();
 	ctx.arc(0, 0, sz + 6, 0, Math.PI * 2);
 	ctx.strokeStyle = isLight ? 'rgba(76, 110, 245, 0.3)' : 'rgba(100, 160, 255, 0.3)';

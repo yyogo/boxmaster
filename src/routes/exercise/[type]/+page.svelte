@@ -1,82 +1,82 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import Canvas from '$lib/components/Canvas.svelte';
 	import ResultsGrid from '$lib/components/ResultsGrid.svelte';
 	import type { Stroke } from '$lib/input/stroke';
-	import type { ExerciseConfig, ExerciseMode, ExerciseType, ReferenceShape, PerspectiveBoxParams, RectParams, LineParams } from '$lib/exercises/types';
+	import type { ExerciseConfig, ExerciseMode } from '$lib/exercises/types';
 	import type { StrokeScore, ExerciseResult, RoundResult } from '$lib/scoring/types';
 	import type { GuideVisibility } from '$lib/canvas/guides';
 	import type { FadingLayer } from '$lib/canvas/renderer';
-	import { generateExercise } from '$lib/exercises/generator';
-	import { createPerspectiveSession, generateSingleBox, type PerspectiveSession } from '$lib/exercises/perspective';
-	import { scoreStroke } from '$lib/scoring/highlight';
-	import { scorePerspectiveStroke, extractBoxParams } from '$lib/scoring/perspective';
-	import { scoreFlow } from '$lib/scoring/flow';
-	import { scoreConfidence } from '$lib/scoring/confidence';
-	import { scoreFreeLine, scoreFreeRectangle } from '$lib/scoring/free';
+	import '$lib/exercises/init';
+	import { getPlugin } from '$lib/exercises/registry';
+	import { defaultShapeScore } from '$lib/exercises/plugin';
 	import { saveResult, getResultsByType } from '$lib/storage/db';
 	import { computeConsistency } from '$lib/scoring/consistency';
+	import { loadPrefs, updatePrefs } from '$lib/storage/prefs';
 
-	let exerciseType: ExerciseType = $derived(page.params.type as ExerciseType);
+	let exerciseType: string = $derived(page.params.type as string);
+	let plugin = $derived.by(() => {
+		if (!exerciseType) return null;
+		try { return getPlugin(exerciseType); } catch { return null; }
+	});
+
+	const savedPrefs = loadPrefs();
 
 	type Phase = 'drawing' | 'fading' | 'complete';
 	let phase: Phase = $state('drawing');
 	let roundIndex = $state(0);
-	let totalShapes = $state(20);
+	let totalShapes = $state(savedPrefs.totalShapes);
 	let exerciseConfig: ExerciseConfig | null = $state(null);
 	let currentStrokes: Stroke[] = $state([]);
 	let currentScores: StrokeScore[] | null = $state(null);
 	let rounds: RoundResult[] = $state([]);
 	let fadingLayer: FadingLayer | null = $state(null);
 	let guideVisibility: GuideVisibility = $state('full');
-	let lightTheme = $state(true);
+	let lightTheme = $state(savedPrefs.lightTheme);
 	let mode: ExerciseMode = $state('guided');
 	let canvasRef: Canvas | null = $state(null);
 	let isDrawing = $state(false);
-	let isFullscreen = $state(false);
+	let penDetected = $state(false);
+	let penOnly = $state(savedPrefs.penOnly);
 	let containerEl: HTMLElement;
-	let perspSession: PerspectiveSession | null = $state(null);
+	let session: unknown = $state(null);
 	let exerciseStartTime = 0;
 	let totalTime = $state(0);
 	let hasStarted = $state(false);
 
-	// Timer mode
-	let timerMode = $state(false);
-	let timerSeconds = $state(60);
+	let timerMode = $state(savedPrefs.timerMode);
+	let timerSeconds = $state(savedPrefs.timerSeconds);
 	let timeRemaining = $state(0);
 	let timerInterval: ReturnType<typeof setInterval> | null = null;
 
 	$effect(() => {
-		// Reset when exercise type changes via navigation
-		const _type = exerciseType;
-		totalShapes = 20;
-		resetExercise();
+		exerciseType; // track only this
+		untrack(() => {
+			if (!plugin) return;
+			const savedMode = loadPrefs().modes[exerciseType];
+			if (savedMode && plugin.availableModes.includes(savedMode)) {
+				mode = savedMode;
+			}
+			totalShapes = loadPrefs().totalShapes ?? plugin.defaultCount;
+			resetExercise();
+		});
 	});
 
-	function requiredStrokes(type: ExerciseType): number {
-		switch (type) {
-			case 'line': case 'circle': case 'ellipse': return 1;
-			case 'rectangle': return 4;
-			case '1-point-box': return 9;
-		}
-	}
+	$effect(() => {
+		updatePrefs({
+			lightTheme,
+			totalShapes,
+			timerMode,
+			timerSeconds,
+			penOnly,
+			modes: exerciseType ? { [exerciseType]: mode } : {}
+		});
+	});
 
 	function modeForVisibility(): GuideVisibility {
 		return mode === 'free' ? 'hidden' : mode === 'semi-guided' ? 'hints' : 'full';
-	}
-
-	function getAvailableModes(type: ExerciseType): ExerciseMode[] {
-		switch (type) {
-			case 'line':
-			case 'rectangle':
-				return ['guided', 'semi-guided', 'free'];
-			case 'circle':
-			case 'ellipse':
-			case '1-point-box':
-				return ['guided', 'semi-guided'];
-		}
 	}
 
 	function getCanvasSize(): { w: number; h: number } {
@@ -87,18 +87,20 @@
 		return { w: window.innerWidth, h: window.innerHeight };
 	}
 
-	function generateNextShape(): ExerciseConfig {
+	function generateNextShape(): ExerciseConfig | null {
+		if (!plugin) return null;
 		const { w, h } = getCanvasSize();
-		if (exerciseType === '1-point-box') {
-			if (!perspSession) perspSession = createPerspectiveSession(w, h);
-			return generateSingleBox(perspSession, w, h, mode as 'guided' | 'semi-guided');
+		const toWorld = canvasRef?.getToWorld();
+		if (plugin.generateFromSession) {
+			if (!session) session = plugin.createSession?.(w, h) ?? null;
+			if (session) return plugin.generateFromSession(session, mode, w, h, toWorld);
 		}
-		return generateExercise(exerciseType, mode, w, h, 1);
+		return plugin.generate(mode, w, h, toWorld);
 	}
 
 	function resetExercise() {
-		const availableModes = getAvailableModes(exerciseType);
-		if (!availableModes.includes(mode)) mode = availableModes[0];
+		if (!plugin) return;
+		if (!plugin.availableModes.includes(mode)) mode = plugin.availableModes[0];
 
 		phase = 'drawing';
 		roundIndex = 0;
@@ -109,8 +111,9 @@
 		hasStarted = false;
 		exerciseStartTime = 0;
 		totalTime = 0;
-		perspSession = null;
+		session = null;
 		guideVisibility = modeForVisibility();
+		canvasRef?.resetView();
 
 		stopTimer();
 		exerciseConfig = generateNextShape();
@@ -130,115 +133,23 @@
 		}
 	}
 
-	function isStrokeRelevant(stroke: Stroke): boolean {
-		if (mode === 'free') return true;
-		if (!exerciseConfig || exerciseConfig.references.length === 0) return true;
+	function handlePenDetected() {
+		if (!penDetected) {
+			penDetected = true;
+			penOnly = true;
+		}
+	}
 
-		const pts = stroke.smoothedPoints.length > 0 ? stroke.smoothedPoints : stroke.rawPoints;
-		if (pts.length < 3) return false;
+	function isStrokeRelevant(stroke: Stroke): boolean {
+		if (!plugin || !exerciseConfig || exerciseConfig.references.length === 0) return true;
 
 		const ref = exerciseConfig.references[0];
-		const params = ref.params;
-		const { w: cw, h: ch } = getCanvasSize();
-		const minDim = Math.min(cw, ch);
-		const minThreshold = minDim * 0.2;
+		const { w, h } = getCanvasSize();
 
-		const strokeCx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
-		const strokeCy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
-
-		if ('givenCorner' in params) {
-			return isPerspectiveStrokeRelevant(pts, strokeCx, strokeCy, params as PerspectiveBoxParams, minThreshold);
+		if (plugin.isStrokeRelevant) {
+			return plugin.isStrokeRelevant(stroke, ref, w, h, mode);
 		}
-
-		let shapeCx = 0, shapeCy = 0, shapeRadius = 50;
-
-		if ('w' in params && 'h' in params && 'cx' in params) {
-			const rp = params as RectParams;
-			shapeCx = rp.cx;
-			shapeCy = rp.cy;
-			shapeRadius = Math.sqrt(rp.w * rp.w + rp.h * rp.h) / 2;
-		} else if ('cx' in params && 'cy' in params) {
-			shapeCx = (params as { cx: number; cy: number }).cx;
-			shapeCy = (params as { cx: number; cy: number }).cy;
-			shapeRadius = 'r' in params
-				? (params as { r: number }).r
-				: Math.max('rx' in params ? (params as { rx: number }).rx : 0, 'ry' in params ? (params as { ry: number }).ry : 0);
-		} else if ('x1' in params && 'x2' in params) {
-			const lp = params as LineParams;
-			shapeCx = (lp.x1 + lp.x2) / 2;
-			shapeCy = (lp.y1 + lp.y2) / 2;
-			const dx = lp.x2 - lp.x1;
-			const dy = lp.y2 - lp.y1;
-			shapeRadius = Math.sqrt(dx * dx + dy * dy) / 2;
-		}
-
-		const threshold = Math.max(shapeRadius * 2.5, minThreshold);
-		const dist = Math.sqrt((strokeCx - shapeCx) ** 2 + (strokeCy - shapeCy) ** 2);
-		return dist < threshold;
-	}
-
-	function isPerspectiveStrokeRelevant(
-		pts: { x: number; y: number }[],
-		strokeCx: number,
-		strokeCy: number,
-		bp: PerspectiveBoxParams,
-		minThreshold: number
-	): boolean {
-		// Bounding box of all box geometry
-		const allPts = [
-			bp.givenCorner,
-			{ x: bp.givenEdges.horizontal.x2, y: bp.givenEdges.horizontal.y2 },
-			{ x: bp.givenEdges.vertical.x2, y: bp.givenEdges.vertical.y2 },
-			{ x: bp.givenEdges.depth.x2, y: bp.givenEdges.depth.y2 }
-		];
-		for (const e of bp.expectedEdges) {
-			allPts.push({ x: e.x1, y: e.y1 }, { x: e.x2, y: e.y2 });
-		}
-		const xs = allPts.map((p) => p.x);
-		const ys = allPts.map((p) => p.y);
-		const bCx = (Math.min(...xs) + Math.max(...xs)) / 2;
-		const bCy = (Math.min(...ys) + Math.max(...ys)) / 2;
-		const bRadius = Math.sqrt((Math.max(...xs) - Math.min(...xs)) ** 2 + (Math.max(...ys) - Math.min(...ys)) ** 2) / 2;
-
-		const dist = Math.sqrt((strokeCx - bCx) ** 2 + (strokeCy - bCy) ** 2);
-		if (dist > Math.max(bRadius * 1.5, minThreshold)) return false;
-
-		// Reject strokes that trace the given (scaffold) edges
-		const givenEdges = [bp.givenEdges.horizontal, bp.givenEdges.vertical, bp.givenEdges.depth];
-		const sampleStep = Math.max(1, Math.floor(pts.length / 10));
-
-		for (const edge of givenEdges) {
-			const edgeLen = Math.sqrt((edge.x2 - edge.x1) ** 2 + (edge.y2 - edge.y1) ** 2);
-			if (edgeLen < 1) continue;
-
-			let totalDist = 0;
-			let samples = 0;
-			for (let i = 0; i < pts.length; i += sampleStep) {
-				totalDist += ptSegDist(pts[i].x, pts[i].y, edge);
-				samples++;
-			}
-			const avgDist = totalDist / samples;
-
-			// Stroke length along the edge direction
-			const strokeLen = Math.sqrt((pts[pts.length - 1].x - pts[0].x) ** 2 + (pts[pts.length - 1].y - pts[0].y) ** 2);
-			const lenRatio = strokeLen / edgeLen;
-
-			// Close to given edge AND roughly the same length => tracing it
-			if (avgDist < Math.max(edgeLen * 0.18, 20) && lenRatio > 0.3) return false;
-		}
-
 		return true;
-	}
-
-	function ptSegDist(px: number, py: number, seg: LineParams): number {
-		const dx = seg.x2 - seg.x1;
-		const dy = seg.y2 - seg.y1;
-		const lenSq = dx * dx + dy * dy;
-		if (lenSq === 0) return Math.sqrt((px - seg.x1) ** 2 + (py - seg.y1) ** 2);
-		const t = Math.max(0, Math.min(1, ((px - seg.x1) * dx + (py - seg.y1) * dy) / lenSq));
-		const projX = seg.x1 + t * dx;
-		const projY = seg.y1 + t * dy;
-		return Math.sqrt((px - projX) ** 2 + (py - projY) ** 2);
 	}
 
 	function handleStrokeComplete(stroke: Stroke) {
@@ -247,8 +158,7 @@
 		if (!isStrokeRelevant(stroke)) return;
 		currentStrokes = [...currentStrokes, stroke];
 
-		const needed = requiredStrokes(exerciseType);
-		if (currentStrokes.length >= needed) {
+		if (plugin && currentStrokes.length >= plugin.requiredStrokes) {
 			scoreAndAdvance();
 		}
 	}
@@ -268,41 +178,19 @@
 	}
 
 	function scoreCurrentShape(): { strokeScores: StrokeScore[]; shapeScore: number } {
-		if (!exerciseConfig || currentStrokes.length === 0) {
+		if (!plugin || !exerciseConfig || currentStrokes.length === 0) {
 			return { strokeScores: [], shapeScore: 0 };
 		}
 
-		const strokeScores: StrokeScore[] = [];
+		const ref = exerciseConfig.references[0];
+		const strokeScores: StrokeScore[] = currentStrokes.map((stroke, i) => {
+			const pts = stroke.smoothedPoints.length > 0 ? stroke.smoothedPoints : stroke.rawPoints;
+			return plugin!.scoreStroke(pts, ref, i, mode);
+		});
 
-		if (mode === 'free' && exerciseType === 'line') {
-			for (const stroke of currentStrokes) {
-				const pts = stroke.smoothedPoints.length > 0 ? stroke.smoothedPoints : stroke.rawPoints;
-				const { accuracy } = scoreFreeLine(pts);
-				strokeScores.push({ accuracy, flow: scoreFlow(pts), confidence: scoreConfidence(pts), segments: [] });
-			}
-		} else if (mode === 'free' && exerciseType === 'rectangle') {
-			const rectResult = scoreFreeRectangle(currentStrokes.map((s) => ({ points: s.smoothedPoints.length > 0 ? s.smoothedPoints : s.rawPoints })));
-			for (const stroke of currentStrokes) {
-				const pts = stroke.smoothedPoints.length > 0 ? stroke.smoothedPoints : stroke.rawPoints;
-				strokeScores.push({ accuracy: rectResult.accuracy, flow: scoreFlow(pts), confidence: scoreConfidence(pts), segments: [] });
-			}
-		} else if (exerciseType === '1-point-box') {
-			const boxes = extractBoxParams(exerciseConfig.references);
-			for (const stroke of currentStrokes) {
-				const pts = stroke.smoothedPoints.length > 0 ? stroke.smoothedPoints : stroke.rawPoints;
-				strokeScores.push({ accuracy: scorePerspectiveStroke(pts, boxes), flow: scoreFlow(pts), confidence: scoreConfidence(pts), segments: [] });
-			}
-		} else {
-			for (let i = 0; i < currentStrokes.length; i++) {
-				const ref = exerciseConfig.references[0];
-				const pts = currentStrokes[i].smoothedPoints.length > 0 ? currentStrokes[i].smoothedPoints : currentStrokes[i].rawPoints;
-				strokeScores.push(scoreStroke(pts, ref, i));
-			}
-		}
-
-		const shapeScore = strokeScores.length > 0
-			? Math.round(strokeScores.reduce((s, sc) => s + (sc.accuracy * 0.5 + sc.flow * 0.3 + (sc.confidence ?? sc.flow) * 0.2), 0) / strokeScores.length)
-			: 0;
+		const shapeScore = plugin.computeShapeScore
+			? plugin.computeShapeScore(strokeScores)
+			: defaultShapeScore(strokeScores);
 
 		return { strokeScores, shapeScore };
 	}
@@ -331,7 +219,6 @@
 			return;
 		}
 
-		// Put old shape+strokes into fading layer
 		fadingLayer = {
 			config: exerciseConfig!,
 			strokes: [...currentStrokes],
@@ -339,15 +226,14 @@
 			alpha: 1
 		};
 
-		// Immediately advance to next shape
 		roundIndex = nextIndex;
 		currentStrokes = [];
 		currentScores = null;
 		guideVisibility = modeForVisibility();
+
 		exerciseConfig = generateNextShape();
 		phase = 'drawing';
 
-		// Animate the fading layer out
 		const fadeStart = performance.now();
 		const fadeDuration = 800;
 
@@ -371,25 +257,33 @@
 
 		if (rounds.length === 0) return;
 
+		// Snapshot reactive state to strip Svelte 5 Proxies before
+		// passing to IndexedDB (structured clone can't handle Proxies).
+		const plainRounds = $state.snapshot(rounds);
+
 		const aggregateScore = Math.round(
-			rounds.reduce((s, r) => s + r.shapeScore, 0) / rounds.length
+			plainRounds.reduce((s, r) => s + r.shapeScore, 0) / plainRounds.length
 		);
 
-		const history = await getResultsByType(exerciseType);
-		const consistency = computeConsistency([...history, { aggregateScore } as ExerciseResult]);
+		try {
+			const history = await getResultsByType(exerciseType);
+			const consistency = computeConsistency([...history, { aggregateScore } as ExerciseResult]);
 
-		const allScores = rounds.flatMap((r) => r.strokeScores);
-		await saveResult({
-			id: `${exerciseType}-${Date.now()}`,
-			timestamp: Date.now(),
-			unit: exerciseType === '1-point-box' ? 'perspective' : 'basic-shapes',
-			exerciseType,
-			mode,
-			strokeCount: rounds.reduce((s, r) => s + r.strokes.length, 0),
-			scores: allScores,
-			aggregateScore,
-			consistency
-		});
+			const allScores = plainRounds.flatMap((r) => r.strokeScores);
+			await saveResult({
+				id: `${exerciseType}-${Date.now()}`,
+				timestamp: Date.now(),
+				unit: plugin?.unit ?? 'basic-shapes',
+				exerciseType,
+				mode,
+				strokeCount: plainRounds.reduce((s, r) => s + r.strokes.length, 0),
+				scores: allScores,
+				aggregateScore,
+				consistency
+			});
+		} catch (err) {
+			console.error('Failed to save exercise result:', err);
+		}
 	}
 
 	function startTimer() {
@@ -422,16 +316,6 @@
 		canvasRef?.resetView();
 	}
 
-	function toggleFullscreen() {
-		if (!document.fullscreenElement) {
-			containerEl?.requestFullscreen();
-			isFullscreen = true;
-		} else {
-			document.exitFullscreen();
-			isFullscreen = false;
-		}
-	}
-
 	function toggleTimer() {
 		if (hasStarted) return;
 		timerMode = !timerMode;
@@ -450,19 +334,13 @@
 			case 'z':
 				if (e.ctrlKey || e.metaKey) { e.preventDefault(); handleUndo(); }
 				break;
-			case 'Escape':
-				if (isFullscreen) { document.exitFullscreen(); isFullscreen = false; }
-				break;
 			case 'Enter':
 				if (phase === 'complete') handleRetry();
 				break;
 			case 'r':
 				if (!e.ctrlKey && !e.metaKey) canvasRef?.resetView();
 				break;
-			case 'f':
-				if (!e.ctrlKey && !e.metaKey) toggleFullscreen();
-				break;
-			case 's':
+		case 's':
 				if (!e.ctrlKey && !e.metaKey && phase === 'drawing') handleSkip();
 				break;
 			case 't':
@@ -481,18 +359,28 @@
 		totalShapes > 0 ? (roundIndex + (phase === 'drawing' ? 0 : 1)) / totalShapes : 0
 	);
 
+	function preventGesture(e: Event) { e.preventDefault(); }
+
 	onMount(() => {
 		resetExercise();
-		document.addEventListener('fullscreenchange', () => {
-			isFullscreen = !!document.fullscreenElement;
-		});
-		return () => stopTimer();
+
+		// Prevent Safari pinch-to-zoom and double-tap-zoom
+		document.addEventListener('gesturestart', preventGesture, { passive: false });
+		document.addEventListener('gesturechange', preventGesture, { passive: false });
+		document.addEventListener('gestureend', preventGesture, { passive: false });
+
+		return () => {
+			stopTimer();
+			document.removeEventListener('gesturestart', preventGesture);
+			document.removeEventListener('gesturechange', preventGesture);
+			document.removeEventListener('gestureend', preventGesture);
+		};
 	});
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="exercise-container" class:fullscreen={isFullscreen} class:light={lightTheme} bind:this={containerEl}>
+<div class="exercise-container" class:light={lightTheme} bind:this={containerEl}>
 	{#if phase !== 'complete'}
 		<Canvas
 			bind:this={canvasRef}
@@ -502,10 +390,12 @@
 			scores={currentScores}
 			{fadingLayer}
 			inputEnabled={phase === 'drawing'}
+			{penOnly}
 			bgColor={lightTheme ? '#ffffff' : undefined}
 			onStrokeComplete={handleStrokeComplete}
 			onStrokeStart={handleStrokeStart}
 			onStrokeEnd={handleStrokeEnd}
+			onPenDetected={handlePenDetected}
 		/>
 
 		<!-- Progress bar -->
@@ -518,7 +408,7 @@
 			<button class="pill-btn" onclick={() => goto('/')}>← Back</button>
 
 			<div class="mode-pills">
-				{#each getAvailableModes(exerciseType) as m}
+				{#each plugin?.availableModes ?? [] as m}
 					<button
 						class="pill-btn"
 						class:active={mode === m}
@@ -571,9 +461,6 @@
 				<button class="pill-btn icon" onclick={() => lightTheme = !lightTheme} title="Toggle theme (T)">
 					{lightTheme ? '◑' : '◐'}
 				</button>
-				<button class="pill-btn icon" onclick={toggleFullscreen} title="Fullscreen (F)">
-					{isFullscreen ? '⊡' : '⊞'}
-				</button>
 			</div>
 		</div>
 
@@ -582,6 +469,14 @@
 			<button class="pill-btn" onclick={handleUndo} disabled={currentStrokes.length === 0 || phase !== 'drawing'}>Undo</button>
 			<button class="pill-btn" onclick={handleSkip} disabled={phase !== 'drawing'} title="Skip (S)">Skip</button>
 			<button class="pill-btn" onclick={() => canvasRef?.resetView()} title="Reset view (R)">⟲</button>
+			{#if penDetected}
+				<button
+					class="pill-btn icon"
+					class:active={penOnly}
+					onclick={() => penOnly = !penOnly}
+					title={penOnly ? 'Pen only — tap to allow finger drawing' : 'Finger drawing enabled — tap for pen only'}
+				>✏️</button>
+			{/if}
 		</div>
 
 		<!-- Live score flash -->
@@ -597,6 +492,8 @@
 			aggregateScore={sessionAggregateScore}
 			{totalTime}
 			onRetry={handleRetry}
+			onClose={handleRetry}
+			onMenu={() => goto('/')}
 		/>
 	{/if}
 </div>
@@ -608,6 +505,9 @@
 		background: #1a1a2e;
 		display: flex;
 		flex-direction: column;
+		touch-action: none;
+		-webkit-user-select: none;
+		user-select: none;
 	}
 
 	.exercise-container.light {
@@ -721,6 +621,7 @@
 		transition: all 0.15s;
 		text-transform: capitalize;
 		white-space: nowrap;
+		touch-action: manipulation;
 	}
 
 	.pill-btn:hover:not(:disabled) {

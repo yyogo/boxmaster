@@ -31,8 +31,8 @@ interface GestureCallbacks {
 	onRotate: (dAngle: number) => void;
 	getTransform: () => ViewTransform;
 	getCenter: () => { x: number; y: number };
-	/** Convert viewport clientX/clientY to canvas-local CSS coordinates */
-	toCanvasCoords: (clientX: number, clientY: number) => { x: number; y: number };
+	/** Extract canvas-local CSS coordinates from a pointer event */
+	toCanvasCoords: (e: PointerEvent) => { x: number; y: number };
 }
 
 function midpoint(a: { x: number; y: number }, b: { x: number; y: number }) {
@@ -49,7 +49,7 @@ export function handlePointerDown(
 	cb: GestureCallbacks
 ): PointerState {
 	const next = { ...state, activePointers: new Map(state.activePointers) };
-	const pos = cb.toCanvasCoords(e.clientX, e.clientY);
+	const pos = cb.toCanvasCoords(e);
 	next.activePointers.set(e.pointerId, pos);
 
 	if (next.activePointers.size === 1 && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
@@ -91,13 +91,13 @@ export function handlePointerMove(
 	cb: GestureCallbacks
 ): PointerState {
 	const next = { ...state, activePointers: new Map(state.activePointers) };
-	const pos = cb.toCanvasCoords(e.clientX, e.clientY);
+	const pos = cb.toCanvasCoords(e);
 	next.activePointers.set(e.pointerId, pos);
 
 	if (next.mode === 'draw' && next.currentStroke) {
-		const coalescedEvents = (e as any).getCoalescedEvents?.() ?? [];
+		const coalescedEvents: PointerEvent[] = (e as any).getCoalescedEvents?.() ?? [];
 		for (const ce of coalescedEvents) {
-			const cp = cb.toCanvasCoords(ce.clientX, ce.clientY);
+			const cp = cb.toCanvasCoords(ce);
 			const cw = screenToWorld(cp, cb.getTransform(), cb.getCenter());
 			addPoint(next.currentStroke, {
 				x: cw.x,

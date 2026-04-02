@@ -4,6 +4,7 @@
 	import type { ExerciseConfig } from '$lib/exercises/types';
 	import { renderGuides } from '$lib/canvas/guides';
 	import { renderHighlights } from '$lib/canvas/highlights';
+	import { getPlugin } from '$lib/exercises/registry';
 
 	interface Props {
 		rounds: RoundResult[];
@@ -11,9 +12,11 @@
 		aggregateScore: number;
 		totalTime: number;
 		onRetry: () => void;
+		onClose: () => void;
+		onMenu: () => void;
 	}
 
-	let { rounds, exerciseType, aggregateScore, totalTime, onRetry }: Props = $props();
+	let { rounds, exerciseType, aggregateScore, totalTime, onRetry, onClose, onMenu }: Props = $props();
 
 	let canvasRefs: HTMLCanvasElement[] = $state([]);
 	let gridEl: HTMLElement;
@@ -42,6 +45,33 @@
 		return Math.min(...rounds.map((r) => r.shapeScore));
 	}
 
+	interface Breakdown { label: string; value: number; color: string }
+
+	function computeBreakdown(): Breakdown[] {
+		const allScores = rounds.flatMap((r) => r.strokeScores);
+		if (allScores.length === 0) return [];
+
+		const avg = (arr: number[]) => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+
+		const accuracy = avg(allScores.map((s) => s.accuracy));
+		const flow = avg(allScores.map((s) => s.flow));
+
+		const confValues = allScores.map((s) => s.confidence).filter((c): c is number => c !== null);
+		const hasConfidence = confValues.length > 0;
+		const confidence = hasConfidence ? avg(confValues) : -1;
+
+		const items: Breakdown[] = [
+			{ label: 'Accuracy', value: accuracy, color: scoreColor(accuracy) },
+			{ label: 'Flow', value: flow, color: scoreColor(flow) }
+		];
+		if (hasConfidence) {
+			items.push({ label: 'Pressure', value: confidence, color: scoreColor(confidence) });
+		}
+		return items;
+	}
+
+	let breakdown = $derived(computeBreakdown());
+
 	function renderThumbnail(canvas: HTMLCanvasElement, round: RoundResult) {
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return;
@@ -63,24 +93,35 @@
 		}
 
 		const ref = round.reference;
-		const bounds = computeBounds(ref, allPts);
+		const plugin = getPlugin(ref.type);
+		const shapeBounds = plugin.getBounds(ref.params as Record<string, unknown>);
+
+		// Expand bounds to include user stroke points
+		let minX = shapeBounds.minX, minY = shapeBounds.minY;
+		let maxX = shapeBounds.maxX, maxY = shapeBounds.maxY;
+		for (const p of allPts) {
+			if (p.x < minX) minX = p.x;
+			if (p.y < minY) minY = p.y;
+			if (p.x > maxX) maxX = p.x;
+			if (p.y > maxY) maxY = p.y;
+		}
 
 		const pad = 12;
-		const scaleX = (cw - pad * 2) / Math.max(1, bounds.maxX - bounds.minX);
-		const scaleY = (ch - pad * 2) / Math.max(1, bounds.maxY - bounds.minY);
+		const scaleX = (cw - pad * 2) / Math.max(1, maxX - minX);
+		const scaleY = (ch - pad * 2) / Math.max(1, maxY - minY);
 		const scale = Math.min(scaleX, scaleY, 2);
 
-		const contentW = (bounds.maxX - bounds.minX) * scale;
-		const contentH = (bounds.maxY - bounds.minY) * scale;
-		const offX = (cw - contentW) / 2 - bounds.minX * scale;
-		const offY = (ch - contentH) / 2 - bounds.minY * scale;
+		const contentW = (maxX - minX) * scale;
+		const contentH = (maxY - minY) * scale;
+		const offX = (cw - contentW) / 2 - minX * scale;
+		const offY = (ch - contentH) / 2 - minY * scale;
 
 		ctx.save();
 		ctx.translate(offX, offY);
 		ctx.scale(scale, scale);
 
 		const miniConfig: ExerciseConfig = {
-			unit: ref.type === '1-point-box' ? 'perspective' : 'basic-shapes',
+			unit: plugin.unit,
 			type: ref.type,
 			mode: 'guided',
 			strokeCount: round.strokes.length,
@@ -99,55 +140,6 @@
 		ctx.restore();
 	}
 
-	function computeBounds(
-		ref: import('$lib/exercises/types').ReferenceShape,
-		extraPts: { x: number; y: number }[]
-	): { minX: number; minY: number; maxX: number; maxY: number } {
-		const xs: number[] = [];
-		const ys: number[] = [];
-
-		for (const p of extraPts) {
-			xs.push(p.x);
-			ys.push(p.y);
-		}
-
-		const params = ref.params;
-		if ('x1' in params && 'x2' in params) {
-			xs.push(params.x1, params.x2);
-			ys.push(params.y1, params.y2);
-		}
-		if ('cx' in params && 'cy' in params) {
-			const r = 'r' in params ? params.r : Math.max('rx' in params ? params.rx : 0, 'ry' in params ? params.ry : 0);
-			xs.push(params.cx - r, params.cx + r);
-			ys.push(params.cy - r, params.cy + r);
-		}
-		if ('givenCorner' in params) {
-			const bp = params as import('$lib/exercises/types').PerspectiveBoxParams;
-			xs.push(bp.givenCorner.x);
-			ys.push(bp.givenCorner.y);
-			for (const e of [bp.givenEdges.horizontal, bp.givenEdges.vertical, bp.givenEdges.depth]) {
-				xs.push(e.x1, e.x2);
-				ys.push(e.y1, e.y2);
-			}
-			for (const e of bp.expectedEdges) {
-				xs.push(e.x1, e.x2);
-				ys.push(e.y1, e.y2);
-			}
-		}
-
-		if (xs.length === 0 || ys.length === 0) {
-			return { minX: 0, minY: 0, maxX: 100, maxY: 100 };
-		}
-
-		const margin = 10;
-		return {
-			minX: Math.min(...xs) - margin,
-			minY: Math.min(...ys) - margin,
-			maxX: Math.max(...xs) + margin,
-			maxY: Math.max(...ys) + margin
-		};
-	}
-
 	onMount(() => {
 		const timer = setTimeout(() => {
 			for (let i = 0; i < rounds.length; i++) {
@@ -161,6 +153,8 @@
 </script>
 
 <div class="results-overlay" bind:this={gridEl}>
+	<button class="close-btn" onclick={onClose} title="Close">✕</button>
+
 	<div class="results-header">
 		<div class="results-score" style="color: {scoreColor(aggregateScore)}">
 			{aggregateScore}
@@ -173,6 +167,22 @@
 			<span class="stat-worst" style="color: {scoreColor(worstScore())}">Worst {worstScore()}</span>
 		</div>
 	</div>
+
+	{#if breakdown.length > 0}
+		<div class="breakdown">
+			{#each breakdown as item}
+				<div class="breakdown-item">
+					<div class="breakdown-header">
+						<span class="breakdown-label">{item.label}</span>
+						<span class="breakdown-value" style="color: {item.color}">{item.value}</span>
+					</div>
+					<div class="breakdown-bar-bg">
+						<div class="breakdown-bar-fill" style="width: {item.value}%; background: {item.color}"></div>
+					</div>
+				</div>
+			{/each}
+		</div>
+	{/if}
 
 	<div class="results-grid">
 		{#each rounds as round, i}
@@ -189,7 +199,8 @@
 	</div>
 
 	<div class="results-actions">
-		<button class="retry-btn" onclick={onRetry}>Try Again</button>
+		<button class="action-btn primary" onclick={onRetry}>Try Again</button>
+		<button class="action-btn secondary" onclick={onMenu}>Back to Menu</button>
 	</div>
 </div>
 
@@ -214,9 +225,33 @@
 		to { opacity: 1; }
 	}
 
+	.close-btn {
+		position: absolute;
+		top: 12px;
+		right: 12px;
+		width: 36px;
+		height: 36px;
+		border: none;
+		background: rgba(255, 255, 255, 0.08);
+		color: #aaa;
+		font-size: 1.1rem;
+		border-radius: 50%;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.15s;
+		z-index: 1;
+	}
+
+	.close-btn:hover {
+		background: rgba(255, 255, 255, 0.15);
+		color: #fff;
+	}
+
 	.results-header {
 		text-align: center;
-		margin-bottom: 24px;
+		margin-bottom: 20px;
 	}
 
 	.results-score {
@@ -238,6 +273,52 @@
 		margin-top: 12px;
 		font-size: 0.8rem;
 		color: #8888aa;
+	}
+
+	.breakdown {
+		display: flex;
+		gap: 20px;
+		width: 100%;
+		max-width: 480px;
+		margin-bottom: 24px;
+	}
+
+	.breakdown-item {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.breakdown-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		margin-bottom: 4px;
+	}
+
+	.breakdown-label {
+		font-size: 0.75rem;
+		color: #8888aa;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.breakdown-value {
+		font-size: 0.85rem;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.breakdown-bar-bg {
+		height: 6px;
+		border-radius: 3px;
+		background: rgba(255, 255, 255, 0.06);
+		overflow: hidden;
+	}
+
+	.breakdown-bar-fill {
+		height: 100%;
+		border-radius: 3px;
+		transition: width 0.6s ease-out;
 	}
 
 	.results-grid {
@@ -272,22 +353,39 @@
 	}
 
 	.results-actions {
+		display: flex;
+		gap: 12px;
 		margin-top: 24px;
 	}
 
-	.retry-btn {
-		padding: 10px 28px;
-		border: 1px solid rgba(76, 110, 245, 0.5);
-		background: rgba(59, 91, 219, 0.85);
-		color: #fff;
+	.action-btn {
+		padding: 10px 24px;
 		border-radius: 24px;
 		cursor: pointer;
-		font-size: 0.95rem;
+		font-size: 0.9rem;
 		transition: all 0.15s;
+		border: 1px solid transparent;
 	}
 
-	.retry-btn:hover {
+	.action-btn.primary {
+		background: rgba(59, 91, 219, 0.85);
+		border-color: rgba(76, 110, 245, 0.5);
+		color: #fff;
+	}
+
+	.action-btn.primary:hover {
 		background: rgba(76, 110, 245, 0.95);
+	}
+
+	.action-btn.secondary {
+		background: rgba(255, 255, 255, 0.06);
+		border-color: rgba(255, 255, 255, 0.12);
+		color: #aaa;
+	}
+
+	.action-btn.secondary:hover {
+		background: rgba(255, 255, 255, 0.12);
+		color: #ddd;
 	}
 
 	@media (max-width: 480px) {
@@ -301,6 +399,21 @@
 
 		.results-score {
 			font-size: 3rem;
+		}
+
+		.breakdown {
+			flex-direction: column;
+			gap: 12px;
+		}
+
+		.results-actions {
+			flex-direction: column;
+			width: 100%;
+			max-width: 280px;
+		}
+
+		.action-btn {
+			text-align: center;
 		}
 	}
 </style>

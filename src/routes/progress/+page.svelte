@@ -4,18 +4,16 @@
 	import type { ExerciseResult } from '$lib/scoring/types';
 	import { getResultsByType } from '$lib/storage/db';
 	import { getProgressSummaries, type ProgressSummary } from '$lib/storage/progress';
+	import '$lib/exercises/init';
+	import { tryGetPlugin } from '$lib/exercises/registry';
 
 	let summaries: ProgressSummary[] = $state([]);
 	let selectedType: string | null = $state(null);
 	let selectedHistory: ExerciseResult[] = $state([]);
 
-	const exerciseLabels: Record<string, string> = {
-		line: 'Lines',
-		circle: 'Circles',
-		ellipse: 'Ellipses',
-		rectangle: 'Rectangles',
-		'1-point-box': '1-Point Perspective'
-	};
+	function exerciseLabel(type: string): string {
+		return tryGetPlugin(type)?.label ?? type;
+	}
 
 	async function loadSummaries() {
 		summaries = await getProgressSummaries();
@@ -79,7 +77,7 @@
 					onclick={() => selectType(s.exerciseType)}
 				>
 					<div class="summary-header">
-						<h3>{exerciseLabels[s.exerciseType] ?? s.exerciseType}</h3>
+						<h3>{exerciseLabel(s.exerciseType)}</h3>
 						<span class="trend" style="color: {trendColor(s.trend)}">
 							{trendIcon(s.trend)}
 						</span>
@@ -108,7 +106,7 @@
 		{#if selectedType && selectedHistory.length > 0}
 			<ProgressChart
 				results={selectedHistory}
-				title={exerciseLabels[selectedType] ?? selectedType}
+				title={exerciseLabel(selectedType)}
 			/>
 		{/if}
 	{/if}
