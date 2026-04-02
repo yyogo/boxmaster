@@ -1,4 +1,4 @@
-export type ExerciseMode = 'guided' | 'semi-guided' | 'free';
+export type ExerciseMode = 'guided' | 'challenge' | 'free';
 
 // Concrete param types for built-in exercises.
 // Plugins define their own params internally and cast as needed.
@@ -42,6 +42,47 @@ export interface PerspectiveBoxParams {
 		depth: LineParams;
 	};
 	expectedEdges: LineParams[];
+}
+
+export interface CurveParams {
+	x1: number;
+	y1: number;
+	x2: number;
+	y2: number;
+	cp1x: number;
+	cp1y: number;
+	cp2x: number;
+	cp2y: number;
+}
+
+export interface PressureLineParams {
+	x1: number;
+	y1: number;
+	x2: number;
+	y2: number;
+}
+
+export interface TaperParams {
+	x1: number;
+	y1: number;
+	x2: number;
+	y2: number;
+	startPressure: number;
+	endPressure: number;
+}
+
+export interface PressureControlParams {
+	x1: number;
+	y1: number;
+	x2: number;
+	y2: number;
+	cp1x?: number;
+	cp1y?: number;
+	cp2x?: number;
+	cp2y?: number;
+	isCurve: boolean;
+	startPressure: number;
+	endPressure: number;
 }
 
 export interface ReferenceShape {

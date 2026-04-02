@@ -17,6 +17,7 @@ export interface ExercisePlugin {
   availableModes: ExerciseMode[];
   requiredStrokes: number;
   defaultCount: number;
+  requiresPressure?: boolean;
 
   generate(
     mode: ExerciseMode,
@@ -41,6 +42,19 @@ export interface ExercisePlugin {
   renderScaffold?(
     ctx: CanvasRenderingContext2D,
     params: Record<string, unknown>,
+  ): void;
+
+  renderStroke?(
+    ctx: CanvasRenderingContext2D,
+    stroke: Stroke,
+    color: string,
+    baseWidth: number,
+  ): void;
+
+  renderScoredStroke?(
+    ctx: CanvasRenderingContext2D,
+    stroke: Stroke,
+    score: StrokeScore,
   ): void;
 
   scoreStroke(
@@ -74,6 +88,8 @@ export type ExercisePluginConfig = Omit<
   | "createSession"
   | "generateFromSession"
   | "renderScaffold"
+  | "renderStroke"
+  | "renderScoredStroke"
 > &
   Partial<
     Pick<
@@ -83,6 +99,8 @@ export type ExercisePluginConfig = Omit<
       | "createSession"
       | "generateFromSession"
       | "renderScaffold"
+      | "renderStroke"
+      | "renderScoredStroke"
     >
   >;
 

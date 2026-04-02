@@ -6,7 +6,9 @@ const COLORS: Record<string, string> = {
 	divergent: '#f87171',
 	jittery: '#fbbf24',
 	pressure_spike: '#c084fc',
-	hesitation: '#fb923c'
+	hesitation: '#fb923c',
+	pressure_inconsistent: '#f472b6',
+	pressure_deviation: '#38bdf8'
 };
 
 export function renderHighlights(
@@ -42,6 +44,39 @@ export function renderHighlights(
 		ctx.strokeStyle = pointColors[i];
 		ctx.lineWidth = 3;
 		ctx.lineCap = 'round';
+		ctx.stroke();
+	}
+}
+
+export function renderPressureHighlights(
+	ctx: CanvasRenderingContext2D,
+	stroke: Stroke,
+	score: StrokeScore
+): void {
+	const pts = stroke.smoothedPoints.length > 0 ? stroke.smoothedPoints : stroke.rawPoints;
+	if (pts.length < 2) return;
+
+	const pointColors = new Array(pts.length).fill('#4ade80');
+
+	for (const seg of score.segments) {
+		const color = COLORS[seg.issue] || '#4ade80';
+		const start = Math.max(0, seg.startIdx);
+		const end = Math.min(pts.length - 1, seg.endIdx);
+		for (let i = start; i <= end; i++) {
+			if (seg.severity > 0.3) {
+				pointColors[i] = color;
+			}
+		}
+	}
+
+	ctx.lineCap = 'round';
+	for (let i = 0; i < pts.length - 1; i++) {
+		const avgP = (pts[i].pressure + pts[i + 1].pressure) / 2;
+		ctx.beginPath();
+		ctx.moveTo(pts[i].x, pts[i].y);
+		ctx.lineTo(pts[i + 1].x, pts[i + 1].y);
+		ctx.strokeStyle = pointColors[i];
+		ctx.lineWidth = Math.max(0.5, 2.5 * avgP * 3);
 		ctx.stroke();
 	}
 }

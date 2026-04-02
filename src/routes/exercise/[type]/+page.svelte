@@ -76,7 +76,7 @@
 	});
 
 	function modeForVisibility(): GuideVisibility {
-		return mode === 'free' ? 'hidden' : mode === 'semi-guided' ? 'hints' : 'full';
+		return mode === 'free' ? 'hidden' : mode === 'challenge' ? 'hints' : 'full';
 	}
 
 	function getCanvasSize(): { w: number; h: number } {
@@ -223,7 +223,8 @@
 			config: exerciseConfig!,
 			strokes: [...currentStrokes],
 			scores: currentScores,
-			alpha: 1
+			alpha: 1,
+			guideVisibility
 		};
 
 		roundIndex = nextIndex;
@@ -403,6 +404,10 @@
 			<div class="progress-fill" style="width: {progressFraction * 100}%"></div>
 		</div>
 
+		{#if plugin?.requiresPressure && !penDetected}
+			<div class="pressure-warning">Use a pressure-sensitive pen for this exercise</div>
+		{/if}
+
 		<!-- Top overlay -->
 		<div class="overlay-top" class:hidden={isDrawing}>
 			<button class="pill-btn" onclick={() => goto('/')}>← Back</button>
@@ -520,6 +525,26 @@
 		width: 100% !important;
 		height: 100% !important;
 		border-radius: 0;
+	}
+
+	/* --- Pressure warning --- */
+
+	.pressure-warning {
+		position: absolute;
+		top: 10px;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 12;
+		background: rgba(244, 114, 182, 0.15);
+		border: 1px solid rgba(244, 114, 182, 0.3);
+		color: #f472b6;
+		padding: 6px 16px;
+		border-radius: 20px;
+		font-size: 0.8rem;
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+		pointer-events: none;
+		white-space: nowrap;
 	}
 
 	/* --- Progress bar --- */

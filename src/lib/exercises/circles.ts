@@ -5,16 +5,7 @@ import type { GuideVisibility } from '$lib/canvas/guides';
 import { placeNonOverlapping } from './placement';
 import { defineExercise, buildStrokeScore, getStrokePoints, strokeArcLen, type CoordTransform } from './plugin';
 import { registerExercise } from './registry';
-
-const GUIDE_COLOR = 'rgba(100, 160, 255, 0.6)';
-const HINT_COLOR = 'rgba(100, 160, 255, 0.5)';
-
-function drawDot(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string) {
-	ctx.beginPath();
-	ctx.arc(x, y, r, 0, Math.PI * 2);
-	ctx.fillStyle = color;
-	ctx.fill();
-}
+import { GUIDE_COLOR, HINT_COLOR, drawDot } from './utils';
 
 function drawCrosshair(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) {
 	ctx.beginPath();
@@ -43,7 +34,7 @@ export const circlePlugin = defineExercise({
 	label: 'Circles',
 	icon: '○',
 	description: 'Draw circles. Aim for round, even shapes with a single confident stroke.',
-	availableModes: ['guided', 'semi-guided'],
+	availableModes: ['guided', 'challenge'],
 	requiredStrokes: 1,
 	defaultCount: 20,
 
@@ -63,7 +54,7 @@ export const circlePlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'circle', params }],
-			availableModes: ['guided', 'semi-guided']
+			availableModes: ['guided', 'challenge']
 		};
 	},
 
@@ -107,13 +98,11 @@ export const circlePlugin = defineExercise({
 		if (pts.length < 3) return false;
 		const p = reference.params as unknown as CircleParams;
 
-		// Stroke centroid should be within 2x radius of center
 		const cx = pts.reduce((s, pt) => s + pt.x, 0) / pts.length;
 		const cy = pts.reduce((s, pt) => s + pt.y, 0) / pts.length;
 		const dist = Math.sqrt((cx - p.cx) ** 2 + (cy - p.cy) ** 2);
 		if (dist > p.r * 2.5) return false;
 
-		// Arc length should be at least 20% of circumference
 		const arc = strokeArcLen(pts);
 		return arc >= p.r * 2 * Math.PI * 0.2;
 	},

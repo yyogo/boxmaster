@@ -67,6 +67,13 @@
 		if (hasConfidence) {
 			items.push({ label: 'Pressure', value: confidence, color: scoreColor(confidence) });
 		}
+		if (allScores.some(s => s.metrics?.pressureMatch != null)) {
+			const pmValues = allScores.map(s => s.metrics?.pressureMatch).filter((v): v is number => v != null);
+			if (pmValues.length > 0) {
+				const pm = avg(pmValues);
+				items.push({ label: 'Pressure Control', value: pm, color: scoreColor(pm) });
+			}
+		}
 		return items;
 	}
 
@@ -133,7 +140,8 @@
 		for (let i = 0; i < round.strokes.length; i++) {
 			const score = round.strokeScores[i];
 			if (score) {
-				renderHighlights(ctx, round.strokes[i], score);
+				if (plugin.renderScoredStroke) plugin.renderScoredStroke(ctx, round.strokes[i], score);
+				else renderHighlights(ctx, round.strokes[i], score);
 			}
 		}
 

@@ -7,17 +7,12 @@ import { placeNonOverlapping } from './placement';
 import { defineExercise, buildStrokeScore, type CoordTransform } from './plugin';
 import { registerExercise } from './registry';
 
+import { drawDot } from './utils';
+
 const GUIDE_COLOR_FAINT = 'rgba(100, 160, 255, 0.15)';
 const SCAFFOLD_COLOR = 'rgba(255, 200, 80, 0.7)';
 const VP_COLOR = 'rgba(255, 120, 80, 0.9)';
 const GIVEN_EDGE_COLOR = 'rgba(180, 220, 255, 0.8)';
-
-function drawDot(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string) {
-	ctx.beginPath();
-	ctx.arc(x, y, r, 0, Math.PI * 2);
-	ctx.fillStyle = color;
-	ctx.fill();
-}
 
 function drawCrosshair(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) {
 	ctx.beginPath();
@@ -291,7 +286,7 @@ export const perspectivePlugin = defineExercise({
 	label: '1-Point Perspective Box',
 	icon: '⬟',
 	description: 'Complete boxes in single-point perspective. Three edges are given — draw the remaining nine.',
-	availableModes: ['guided', 'semi-guided'],
+	availableModes: ['guided', 'challenge'],
 	requiredStrokes: 9,
 	defaultCount: 10,
 
@@ -342,7 +337,7 @@ export const perspectivePlugin = defineExercise({
 			mode,
 			strokeCount: params.expectedEdges.length,
 			references: [{ type: '1-point-box', params }],
-			availableModes: ['guided', 'semi-guided']
+			availableModes: ['guided', 'challenge']
 		};
 	},
 

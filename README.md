@@ -1,42 +1,44 @@
-# sv
+# BoxMaster — Drawing Practice Web App
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+A web application inspired by [drawabox.com](https://drawabox.com) that helps users
+improve drawing technique through guided exercises, real-time scoring, and
+progress tracking. Built with SvelteKit 2 / Svelte 5, fully client-side with
+offline persistence.
 
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
-
-```sh
-# create a new project
-npx sv create my-app
-```
-
-To recreate this project with the same configuration:
+## Quick start
 
 ```sh
-# recreate this project
-npx sv@0.13.1 create --template minimal --types ts --no-install .
+pnpm install
+pnpm dev          # http://localhost:5173
+pnpm check        # svelte-check + TypeScript
+pnpm build        # production build (adapter-auto)
 ```
 
-## Developing
+## Exercises
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Five built-in exercises across two units:
 
-```sh
-npm run dev
+**Basic Shapes** — lines, circles, ellipses, rectangles
+**Perspective** — 1-point perspective boxes
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
+Each exercise supports up to three modes: guided (trace the shape),
+challenge (hints only), and free (no guides). Sessions show one shape at
+a time; after a configurable count (or timer), results are displayed with
+per-shape thumbnails and a score breakdown.
 
-## Building
+## Scoring
 
-To create a production version of your app:
+Strokes are evaluated on accuracy (distance from reference), flow (speed and
+velocity consistency), and confidence (pressure consistency, when using a
+pen/stylus). Problem areas are highlighted directly on the stroke.
 
-```sh
-npm run build
-```
+## Progress
 
-You can preview the production build with `npm run preview`.
+Completed sessions are saved to IndexedDB. The progress page shows per-exercise
+trends, best scores, and recent averages.
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+## Architecture
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design documentation:
+plugin system, canvas pipeline, scoring details, persistence, and how to add
+new exercises.

@@ -8,9 +8,10 @@
 
 	let { onSelect }: Props = $props();
 
-	const unitOrder = ['basic-shapes', 'perspective'];
+	const unitOrder = ['basic-shapes', 'strokes', 'perspective'];
 	const unitLabels: Record<string, string> = {
 		'basic-shapes': 'Basic Shapes',
+		strokes: 'Strokes',
 		perspective: 'Perspective'
 	};
 
@@ -33,6 +34,9 @@
 								{#each ex.availableModes as m}
 									<span class="mode-tag">{m}</span>
 								{/each}
+								{#if ex.requiresPressure}
+									<span class="mode-tag pressure-tag">pen required</span>
+								{/if}
 							</div>
 						</button>
 					{/each}
@@ -55,6 +59,9 @@
 							{#each ex.availableModes as m}
 								<span class="mode-tag">{m}</span>
 							{/each}
+							{#if ex.requiresPressure}
+								<span class="mode-tag pressure-tag">pen required</span>
+							{/if}
 						</div>
 					</button>
 				{/each}
@@ -137,5 +144,11 @@
 		color: #7777aa;
 		border-radius: 10px;
 		text-transform: capitalize;
+	}
+
+	.pressure-tag {
+		background: rgba(244, 114, 182, 0.15);
+		color: #f472b6;
+		border: 1px solid rgba(244, 114, 182, 0.25);
 	}
 </style>

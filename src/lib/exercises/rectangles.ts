@@ -2,29 +2,13 @@ import type { ExerciseConfig, ExerciseMode, RectParams, ReferenceShape } from '.
 import type { StrokePoint, Stroke } from '$lib/input/stroke';
 import type { StrokeScore } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
-import { pointToSegmentDist, rectEdges, rectCorners } from '$lib/scoring/geometry';
+import { rectEdges, rectCorners } from '$lib/scoring/geometry';
 import { placeNonOverlapping } from './placement';
 import { defineExercise, buildStrokeScore, getStrokePoints, strokeChord, strokeArcLen, angleDiff, type CoordTransform } from './plugin';
 import { registerExercise } from './registry';
 import { scoreFlow } from '$lib/scoring/flow';
 import { scoreConfidence } from '$lib/scoring/confidence';
-
-const GUIDE_COLOR = 'rgba(100, 160, 255, 0.6)';
-const HINT_COLOR = 'rgba(100, 160, 255, 0.5)';
-
-function drawDot(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string) {
-	ctx.beginPath();
-	ctx.arc(x, y, r, 0, Math.PI * 2);
-	ctx.fillStyle = color;
-	ctx.fill();
-}
-
-function scoreLineAccuracy(points: StrokePoint[], line: { x1: number; y1: number; x2: number; y2: number }): number {
-	let totalDist = 0;
-	for (const p of points) totalDist += pointToSegmentDist(p.x, p.y, line);
-	const avgDist = totalDist / points.length;
-	return Math.max(0, Math.min(100, 100 - (avgDist / 50) * 100));
-}
+import { GUIDE_COLOR, HINT_COLOR, drawDot, scoreLineAccuracy } from './utils';
 
 function scoreFreeRect(strokes: Stroke[]): number {
 	if (strokes.length < 4) return 0;
@@ -78,7 +62,7 @@ export const rectanglePlugin = defineExercise({
 	label: 'Rectangles',
 	icon: '▭',
 	description: 'Draw rectangles with straight edges and square corners.',
-	availableModes: ['guided', 'semi-guided', 'free'],
+	availableModes: ['guided', 'challenge', 'free'],
 	requiredStrokes: 4,
 	defaultCount: 15,
 
@@ -103,7 +87,7 @@ export const rectanglePlugin = defineExercise({
 			mode,
 			strokeCount: 4,
 			references: [{ type: 'rectangle', params }],
-			availableModes: ['guided', 'semi-guided', 'free']
+			availableModes: ['guided', 'challenge', 'free']
 		};
 	},
 

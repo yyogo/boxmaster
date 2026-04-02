@@ -1,4 +1,4 @@
-export type IssueType = 'accurate' | 'divergent' | 'jittery' | 'pressure_spike' | 'hesitation';
+export type IssueType = 'accurate' | 'divergent' | 'jittery' | 'pressure_spike' | 'hesitation' | 'pressure_inconsistent' | 'pressure_deviation';
 
 export interface ScoredSegment {
 	startIdx: number;
@@ -12,6 +12,7 @@ export interface StrokeScore {
 	flow: number;
 	confidence: number | null;
 	segments: ScoredSegment[];
+	metrics?: Record<string, number>;
 }
 
 export interface RoundResult {

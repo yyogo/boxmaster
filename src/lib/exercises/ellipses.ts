@@ -5,16 +5,7 @@ import type { GuideVisibility } from '$lib/canvas/guides';
 import { placeNonOverlapping } from './placement';
 import { defineExercise, buildStrokeScore, getStrokePoints, strokeArcLen, type CoordTransform } from './plugin';
 import { registerExercise } from './registry';
-
-const GUIDE_COLOR = 'rgba(100, 160, 255, 0.6)';
-const HINT_COLOR = 'rgba(100, 160, 255, 0.5)';
-
-function drawDot(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string) {
-	ctx.beginPath();
-	ctx.arc(x, y, r, 0, Math.PI * 2);
-	ctx.fillStyle = color;
-	ctx.fill();
-}
+import { GUIDE_COLOR, HINT_COLOR, drawDot } from './utils';
 
 function drawCrosshair(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) {
 	ctx.beginPath();
@@ -49,7 +40,7 @@ export const ellipsePlugin = defineExercise({
 	label: 'Ellipses',
 	icon: '⬮',
 	description: 'Draw ellipses at various orientations. Keep your strokes smooth and even.',
-	availableModes: ['guided', 'semi-guided'],
+	availableModes: ['guided', 'challenge'],
 	requiredStrokes: 1,
 	defaultCount: 20,
 
@@ -74,7 +65,7 @@ export const ellipsePlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'ellipse', params }],
-			availableModes: ['guided', 'semi-guided']
+			availableModes: ['guided', 'challenge']
 		};
 	},
 
@@ -129,13 +120,11 @@ export const ellipsePlugin = defineExercise({
 		const p = reference.params as unknown as EllipseParams;
 		const maxR = Math.max(p.rx, p.ry);
 
-		// Stroke centroid within 2.5x max radius of center
 		const cx = pts.reduce((s, pt) => s + pt.x, 0) / pts.length;
 		const cy = pts.reduce((s, pt) => s + pt.y, 0) / pts.length;
 		const dist = Math.sqrt((cx - p.cx) ** 2 + (cy - p.cy) ** 2);
 		if (dist > maxR * 2.5) return false;
 
-		// Arc length at least 20% of approximate perimeter
 		const arc = strokeArcLen(pts);
 		const approxPerimeter = Math.PI * (3 * (p.rx + p.ry) - Math.sqrt((3 * p.rx + p.ry) * (p.rx + 3 * p.ry)));
 		return arc >= approxPerimeter * 0.2;

@@ -5,3 +5,7 @@ import './circles';
 import './ellipses';
 import './rectangles';
 import './perspective';
+import './curves';
+import './constant-pressure';
+import './taper';
+import './pressure-control';

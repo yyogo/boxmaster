@@ -5,13 +5,14 @@ import type { StrokeScore } from '$lib/scoring/types';
 import { applyTransform, worldToScreen } from './transform';
 import { renderGuides, type GuideVisibility } from './guides';
 import { renderHighlights } from './highlights';
-import { getPlugin } from '$lib/exercises/registry';
+import { getPlugin, tryGetPlugin } from '$lib/exercises/registry';
 
 export interface FadingLayer {
 	config: ExerciseConfig;
 	strokes: Stroke[];
 	scores: StrokeScore[] | null;
 	alpha: number;
+	guideVisibility: GuideVisibility;
 }
 
 export interface RenderState {
@@ -42,17 +43,22 @@ export function render(
 	ctx.save();
 	applyTransform(ctx, state.transform, center);
 
+	const plugin = state.exerciseConfig ? tryGetPlugin(state.exerciseConfig.type) : undefined;
+
 	if (state.fadingLayer && state.fadingLayer.alpha > 0) {
 		const fl = state.fadingLayer;
+		const flPlugin = tryGetPlugin(fl.config.type);
 		ctx.save();
 		ctx.globalAlpha = fl.alpha;
-		renderGuides(ctx, fl.config, 'full');
+		renderGuides(ctx, fl.config, fl.guideVisibility);
 		for (let i = 0; i < fl.strokes.length; i++) {
 			const score = fl.scores?.[i] ?? null;
 			if (score) {
-				renderHighlights(ctx, fl.strokes[i], score);
+				if (flPlugin?.renderScoredStroke) flPlugin.renderScoredStroke(ctx, fl.strokes[i], score);
+				else renderHighlights(ctx, fl.strokes[i], score);
 			} else {
-				drawStroke(ctx, fl.strokes[i], '#e2e2e2', 2.5);
+				if (flPlugin?.renderStroke) flPlugin.renderStroke(ctx, fl.strokes[i], '#e2e2e2', 2.5);
+				else drawStroke(ctx, fl.strokes[i], '#e2e2e2', 2.5);
 			}
 		}
 		ctx.restore();
@@ -65,14 +71,19 @@ export function render(
 	for (let i = 0; i < state.strokes.length; i++) {
 		const score = state.scores?.[i] ?? null;
 		if (score) {
-			renderHighlights(ctx, state.strokes[i], score);
+			if (plugin?.renderScoredStroke) plugin.renderScoredStroke(ctx, state.strokes[i], score);
+			else renderHighlights(ctx, state.strokes[i], score);
 		} else {
-			drawStroke(ctx, state.strokes[i], state.bgColor === '#ffffff' ? '#222222' : '#e2e2e2', 2.5);
+			const color = state.bgColor === '#ffffff' ? '#222222' : '#e2e2e2';
+			if (plugin?.renderStroke) plugin.renderStroke(ctx, state.strokes[i], color, 2.5);
+			else drawStroke(ctx, state.strokes[i], color, 2.5);
 		}
 	}
 
 	if (state.currentStroke && state.currentStroke.rawPoints.length > 0) {
-		drawStroke(ctx, state.currentStroke, state.bgColor === '#ffffff' ? '#111111' : '#ffffff', 2.5);
+		const color = state.bgColor === '#ffffff' ? '#111111' : '#ffffff';
+		if (plugin?.renderStroke) plugin.renderStroke(ctx, state.currentStroke, color, 2.5);
+		else drawStroke(ctx, state.currentStroke, color, 2.5);
 	}
 
 	ctx.restore();
@@ -82,7 +93,7 @@ export function render(
 	}
 }
 
-function drawStroke(
+export function drawStroke(
 	ctx: CanvasRenderingContext2D,
 	stroke: Stroke,
 	color: string,
@@ -101,6 +112,27 @@ function drawStroke(
 	ctx.lineCap = 'round';
 	ctx.lineJoin = 'round';
 	ctx.stroke();
+}
+
+export function drawPressureStroke(
+	ctx: CanvasRenderingContext2D,
+	stroke: Stroke,
+	color: string,
+	baseWidth: number
+): void {
+	const pts = stroke.smoothedPoints.length > 0 ? stroke.smoothedPoints : stroke.rawPoints;
+	if (pts.length < 2) return;
+
+	ctx.strokeStyle = color;
+	ctx.lineCap = 'round';
+	for (let i = 0; i < pts.length - 1; i++) {
+		const avgP = (pts[i].pressure + pts[i + 1].pressure) / 2;
+		ctx.beginPath();
+		ctx.moveTo(pts[i].x, pts[i].y);
+		ctx.lineTo(pts[i + 1].x, pts[i + 1].y);
+		ctx.lineWidth = Math.max(0.5, baseWidth * avgP * 3);
+		ctx.stroke();
+	}
 }
 
 function getShapeCenter(config: ExerciseConfig): { x: number; y: number } | null {
