@@ -63,6 +63,13 @@ class DailySession {
 		this.completed = [...this.completed, { type, score, shapesCompleted }];
 	}
 
+	peekNextExercise(): string | null {
+		if (!this.plan) return null;
+		const nextIdx = this.currentIndex + 1;
+		if (nextIdx >= this.plan.exercises.length || this.expired) return null;
+		return this.plan.exercises[nextIdx].type;
+	}
+
 	advanceExercise(): string | null {
 		if (!this.plan) return null;
 		this.currentIndex++;

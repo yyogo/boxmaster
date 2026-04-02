@@ -20,6 +20,7 @@ export interface TwoPointBoxParams {
 	vpRight: { x: number; y: number };
 	givenEdge: LineParams;
 	expectedEdges: LineParams[];
+	verticalIndices: number[];
 }
 
 const GUIDE_COLOR_FAINT = 'rgba(100, 160, 255, 0.15)';
@@ -39,12 +40,10 @@ function drawCrosshair(ctx: CanvasRenderingContext2D, x: number, y: number, size
 	ctx.stroke();
 }
 
-function towardVP(from: { x: number; y: number }, vp: { x: number; y: number }, length: number): { x: number; y: number } {
-	const dx = vp.x - from.x;
-	const dy = vp.y - from.y;
-	const dist = Math.sqrt(dx * dx + dy * dy);
-	if (dist < 1) return from;
-	return { x: from.x + (dx / dist) * length, y: from.y + (dy / dist) * length };
+function yOnLine(from: { x: number; y: number }, to: { x: number; y: number }, atX: number): number {
+	const dx = to.x - from.x;
+	if (Math.abs(dx) < 0.001) return from.y;
+	return from.y + (atX - from.x) / dx * (to.y - from.y);
 }
 
 function generate2PtBox(
@@ -54,54 +53,55 @@ function generate2PtBox(
 	cx: number, cy: number,
 	edgeH: number, widthL: number, widthR: number,
 ): TwoPointBoxParams {
-	// The given edge is a vertical line at (cx, cy) with height edgeH
 	const below = cy > horizonY;
 	const vDir = below ? -1 : 1;
-	const top = { x: cx, y: cy };
-	const bottom = { x: cx, y: cy + vDir * edgeH };
 
-	const givenEdge: LineParams = { x1: top.x, y1: top.y, x2: bottom.x, y2: bottom.y };
+	// 1. Front edge
+	const fTop = { x: cx, y: cy };
+	const fBot = { x: cx, y: cy + vDir * edgeH };
+	const givenEdge: LineParams = { x1: fTop.x, y1: fTop.y, x2: fBot.x, y2: fBot.y };
 
-	// Left receding edges from top and bottom toward vpLeft
-	const tl = towardVP(top, vpLeft, widthL);
-	const bl = towardVP(bottom, vpLeft, widthL);
+	// 2. Side edge x positions
+	const leftX = cx - widthL;
+	const rightX = cx + widthR;
 
-	// Right receding edges from top and bottom toward vpRight
-	const tr = towardVP(top, vpRight, widthR);
-	const br = towardVP(bottom, vpRight, widthR);
+	// 3. Side corners: intersect VP→front-corner lines with side verticals
+	const lTop = { x: leftX, y: yOnLine(vpLeft, fTop, leftX) };
+	const lBot = { x: leftX, y: yOnLine(vpLeft, fBot, leftX) };
+	const rTop = { x: rightX, y: yOnLine(vpRight, fTop, rightX) };
+	const rBot = { x: rightX, y: yOnLine(vpRight, fBot, rightX) };
 
-	// Far vertical edges
-	const leftVertical: LineParams = { x1: tl.x, y1: tl.y, x2: bl.x, y2: bl.y };
-	const rightVertical: LineParams = { x1: tr.x, y1: tr.y, x2: br.x, y2: br.y };
+	// 4. Back corners: intersect left-side→vpRight with right-side→vpLeft
+	const slopeR = (vpRight.y - lTop.y) / (vpRight.x - lTop.x);
+	const slopeL = (vpLeft.y - rTop.y) / (vpLeft.x - rTop.x);
+	const backTopX = (rTop.y - lTop.y + slopeR * lTop.x - slopeL * rTop.x) / (slopeR - slopeL);
+	const backTopY = lTop.y + slopeR * (backTopX - lTop.x);
+	const backTop = { x: backTopX, y: backTopY };
 
-	// Back edges: from far-left corners toward vpRight, from far-right corners toward vpLeft
-	// We need to find the back corner where these meet
-	const backTopL = towardVP(tl, vpRight, widthR * 0.8);
-	const backBottomL = towardVP(bl, vpRight, widthR * 0.8);
-	const backTopR = towardVP(tr, vpLeft, widthL * 0.8);
-	const backBottomR = towardVP(br, vpLeft, widthL * 0.8);
-
-	// For simplicity, use the average as back corner positions
-	const backTop = { x: (backTopL.x + backTopR.x) / 2, y: (backTopL.y + backTopR.y) / 2 };
-	const backBottom = { x: (backBottomL.x + backBottomR.x) / 2, y: (backBottomL.y + backBottomR.y) / 2 };
+	const slopeBR = (vpRight.y - lBot.y) / (vpRight.x - lBot.x);
+	const slopeBL = (vpLeft.y - rBot.y) / (vpLeft.x - rBot.x);
+	const backBotX = (rBot.y - lBot.y + slopeBR * lBot.x - slopeBL * rBot.x) / (slopeBR - slopeBL);
+	const backBotY = lBot.y + slopeBR * (backBotX - lBot.x);
+	const backBot = { x: backBotX, y: backBotY };
 
 	const expectedEdges: LineParams[] = [
-		// Top receding edges
-		{ x1: top.x, y1: top.y, x2: tl.x, y2: tl.y },   // top -> left
-		{ x1: top.x, y1: top.y, x2: tr.x, y2: tr.y },   // top -> right
-		// Bottom receding edges
-		{ x1: bottom.x, y1: bottom.y, x2: bl.x, y2: bl.y }, // bottom -> left
-		{ x1: bottom.x, y1: bottom.y, x2: br.x, y2: br.y }, // bottom -> right
-		// Far vertical edges
-		leftVertical,
-		rightVertical,
-		// Back edges
-		{ x1: tl.x, y1: tl.y, x2: backTop.x, y2: backTop.y },
-		{ x1: tr.x, y1: tr.y, x2: backTop.x, y2: backTop.y },
-		{ x1: bl.x, y1: bl.y, x2: backBottom.x, y2: backBottom.y },
-		{ x1: br.x, y1: br.y, x2: backBottom.x, y2: backBottom.y },
+		// Top receding
+		{ x1: fTop.x, y1: fTop.y, x2: lTop.x, y2: lTop.y },     // 0: front-top → left-top
+		{ x1: fTop.x, y1: fTop.y, x2: rTop.x, y2: rTop.y },     // 1: front-top → right-top
+		// Bottom receding
+		{ x1: fBot.x, y1: fBot.y, x2: lBot.x, y2: lBot.y },     // 2: front-bot → left-bot
+		{ x1: fBot.x, y1: fBot.y, x2: rBot.x, y2: rBot.y },     // 3: front-bot → right-bot
+		// Side verticals
+		{ x1: lTop.x, y1: lTop.y, x2: lBot.x, y2: lBot.y },     // 4: left vertical
+		{ x1: rTop.x, y1: rTop.y, x2: rBot.x, y2: rBot.y },     // 5: right vertical
+		// Back top edges
+		{ x1: lTop.x, y1: lTop.y, x2: backTop.x, y2: backTop.y }, // 6: left-top → back-top (→ vpRight)
+		{ x1: rTop.x, y1: rTop.y, x2: backTop.x, y2: backTop.y }, // 7: right-top → back-top (→ vpLeft)
+		// Back bottom edges
+		{ x1: lBot.x, y1: lBot.y, x2: backBot.x, y2: backBot.y }, // 8: left-bot → back-bot
+		{ x1: rBot.x, y1: rBot.y, x2: backBot.x, y2: backBot.y }, // 9: right-bot → back-bot
 		// Back vertical
-		{ x1: backTop.x, y1: backTop.y, x2: backBottom.x, y2: backBottom.y },
+		{ x1: backTop.x, y1: backTop.y, x2: backBot.x, y2: backBot.y }, // 10
 	];
 
 	return {
@@ -109,6 +109,7 @@ function generate2PtBox(
 		vpLeft, vpRight,
 		givenEdge,
 		expectedEdges,
+		verticalIndices: [4, 5, 10],
 	};
 }
 
@@ -124,9 +125,8 @@ export const perspective2PtPlugin = defineExercise({
 
 	createSession(canvasW: number, canvasH: number): unknown {
 		const horizonY = canvasH * (0.35 + Math.random() * 0.1);
-		// VPs are typically far off-canvas
-		const vpLeftX = -canvasW * (0.3 + Math.random() * 0.7);
-		const vpRightX = canvasW * (1.3 + Math.random() * 0.7);
+		const vpLeftX = canvasW * (0.02 + Math.random() * 0.13);
+		const vpRightX = canvasW * (0.85 + Math.random() * 0.13);
 		return {
 			horizonY,
 			vpLeft: { x: vpLeftX, y: horizonY },
@@ -142,9 +142,9 @@ export const perspective2PtPlugin = defineExercise({
 		let params: TwoPointBoxParams | null = null;
 
 		for (let attempt = 0; attempt < 30; attempt++) {
-			const edgeH = minDim * (0.12 + Math.random() * 0.18);
-			const widthL = minDim * (0.10 + Math.random() * 0.15);
-			const widthR = minDim * (0.10 + Math.random() * 0.15);
+			const edgeH = minDim * (0.18 + Math.random() * 0.20);
+			const widthL = minDim * (0.15 + Math.random() * 0.18);
+			const widthR = minDim * (0.15 + Math.random() * 0.18);
 
 			const maxSz = Math.max(widthL + widthR, edgeH) * 2;
 			const slots = placeNonOverlapping(1, canvasW, canvasH, () => ({ w: maxSz, h: maxSz }), 60, 30);
@@ -158,9 +158,9 @@ export const perspective2PtPlugin = defineExercise({
 		}
 
 		if (!params) {
-			const edgeH = minDim * 0.18;
-			const widthL = minDim * 0.12;
-			const widthR = minDim * 0.12;
+			const edgeH = minDim * 0.25;
+			const widthL = minDim * 0.18;
+			const widthR = minDim * 0.18;
 			params = generate2PtBox(s.vpLeft, s.vpRight, s.horizonY, canvasW / 2, s.horizonY + canvasH * 0.2, edgeH, widthL, widthR);
 		}
 
@@ -200,8 +200,8 @@ export const perspective2PtPlugin = defineExercise({
 
 	renderGuide(ctx: CanvasRenderingContext2D, params: Record<string, unknown>, visibility: GuideVisibility) {
 		const p = params as unknown as TwoPointBoxParams;
+		const VERT_HINT_COLOR = 'rgba(180, 220, 255, 0.25)';
 
-		// Draw given vertical edge
 		ctx.beginPath();
 		ctx.moveTo(p.givenEdge.x1, p.givenEdge.y1);
 		ctx.lineTo(p.givenEdge.x2, p.givenEdge.y2);
@@ -219,6 +219,23 @@ export const perspective2PtPlugin = defineExercise({
 				ctx.strokeStyle = GUIDE_COLOR_FAINT;
 				ctx.lineWidth = 1.5;
 				ctx.setLineDash([6, 6]);
+				ctx.stroke();
+				ctx.setLineDash([]);
+			}
+		} else if (visibility === 'hints') {
+			const BACK_VERT_COLOR = 'rgba(255, 180, 100, 0.25)';
+			const backIdx = p.verticalIndices[p.verticalIndices.length - 1];
+
+			for (const idx of p.verticalIndices) {
+				const edge = p.expectedEdges[idx];
+				if (!edge) continue;
+
+				ctx.beginPath();
+				ctx.moveTo(edge.x1, p.givenEdge.y1);
+				ctx.lineTo(edge.x1, p.givenEdge.y2);
+				ctx.strokeStyle = idx === backIdx ? BACK_VERT_COLOR : VERT_HINT_COLOR;
+				ctx.lineWidth = 1.5;
+				ctx.setLineDash([4, 8]);
 				ctx.stroke();
 				ctx.setLineDash([]);
 			}

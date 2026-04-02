@@ -52,3 +52,8 @@ export async function getRecentResults(limit = 20): Promise<ExerciseResult[]> {
 	const all = await getAllResults();
 	return all.slice(-limit);
 }
+
+export async function clearAllResults(): Promise<void> {
+	const db = await getDb();
+	await db.clear(STORE_NAME);
+}

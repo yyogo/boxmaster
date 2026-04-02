@@ -63,6 +63,10 @@ const EXERCISE_TIPS: Tip[] = [
 	// 2-Point perspective
 	{ text: 'In 2-point perspective, only verticals stay vertical. All horizontal edges recede to a VP.', exercises: ['2-point-box'] },
 	{ text: 'Left-facing edges go to the left VP, right-facing edges go to the right VP. Never mix them.', exercises: ['2-point-box'] },
+	// Plane ellipses
+	{ text: 'The ellipse should touch the midpoint of each side of the rectangle — those are your tangent points.', exercises: ['plane-ellipse'] },
+	{ text: 'In perspective, circles become ellipses. The more the plane tilts away, the narrower the ellipse gets.', exercises: ['plane-ellipse'] },
+	{ text: 'Ghost the curve path before committing. Feel the oval shape with your hand first.', exercises: ['plane-ellipse'] },
 ];
 
 const PERFORMANCE_TIPS: Tip[] = [

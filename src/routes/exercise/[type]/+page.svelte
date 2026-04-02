@@ -20,6 +20,8 @@
 	import { dailySession } from '$lib/daily/session.svelte';
 	import { getFeedback, type FeedbackMessage } from '$lib/daily/feedback';
 	import { recordSession } from '$lib/daily/streak';
+	import { getNextRecommended } from '$lib/daily/planner';
+	import { tryGetPlugin } from '$lib/exercises/registry';
 
 	let exerciseType: string = $derived(page.params.type as string);
 	let plugin = $derived.by(() => {
@@ -73,6 +75,8 @@
 	let feedbackVisible = $state(false);
 	let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 	const FEEDBACK_DISPLAY_MS = 1200;
+
+	let nextExercise: { type: string; label: string } | null = $state(null);
 
 	$effect(() => {
 		exerciseType; // track only this
@@ -168,6 +172,7 @@
 		feedback = null;
 		feedbackVisible = false;
 		if (feedbackTimeout) clearTimeout(feedbackTimeout);
+		nextExercise = null;
 		guideVisibility = modeForVisibility();
 		canvasRef?.resetView();
 
@@ -383,7 +388,7 @@
 		totalTime = Date.now() - exerciseStartTime;
 
 		if (rounds.length === 0) {
-			if (dailySession.active) dailyAdvance();
+			resolveNextExercise();
 			return;
 		}
 
@@ -422,26 +427,42 @@
 
 			if (dailySession.active) {
 				dailySession.recordExercise(exerciseType, aggregateScore, plainRounds.length);
-				dailyAdvance();
-				return;
 			}
 		} catch (err) {
 			console.error('Failed to save exercise result:', err);
-			if (dailySession.active) {
-				dailyAdvance();
-				return;
+		}
+
+		resolveNextExercise();
+	}
+
+	function resolveNextExercise() {
+		if (dailySession.active) {
+			const nextType = dailySession.peekNextExercise();
+			if (nextType) {
+				const p = tryGetPlugin(nextType);
+				nextExercise = { type: nextType, label: p?.label ?? nextType };
+			} else {
+				nextExercise = { type: '__daily_complete__', label: 'Session Summary' };
 			}
+		} else {
+			getNextRecommended(exerciseType).then((rec) => {
+				nextExercise = rec;
+			});
 		}
 	}
 
-	function dailyAdvance() {
-		const next = dailySession.advanceExercise();
-		if (next) {
-			goto(`/exercise/${next}`);
-		} else {
-			dailySession.stop();
-			recordSession();
-			goto('/daily-complete');
+	function handleNextExercise() {
+		if (dailySession.active) {
+			const next = dailySession.advanceExercise();
+			if (next) {
+				goto(`/exercise/${next}`);
+			} else {
+				dailySession.stop();
+				recordSession();
+				goto('/daily-complete');
+			}
+		} else if (nextExercise) {
+			goto(`/exercise/${nextExercise.type}`);
 		}
 	}
 
@@ -703,6 +724,8 @@
 			onRetry={handleRetry}
 			onClose={handleRetry}
 			onMenu={() => goto('/')}
+			onNext={nextExercise ? handleNextExercise : undefined}
+			nextLabel={nextExercise?.label}
 		/>
 	{/if}
 </div>

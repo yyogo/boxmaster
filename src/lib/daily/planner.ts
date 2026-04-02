@@ -21,10 +21,10 @@ export interface DailyPlan {
 	exercises: { type: string; shapesCount: number }[];
 }
 
-export async function buildDailyPlan(durationMinutes: number): Promise<DailyPlan> {
-	const plugins = getAllPlugins().filter((p) => !p.requiresPressure);
-	const allResults = await getAllResults();
-
+function rankPlugins(
+	plugins: ExercisePlugin[],
+	allResults: ExerciseResult[],
+): ScoredPlugin[] {
 	const byType = new Map<string, ExerciseResult[]>();
 	for (const r of allResults) {
 		const list = byType.get(r.exerciseType) ?? [];
@@ -57,6 +57,13 @@ export async function buildDailyPlan(durationMinutes: number): Promise<DailyPlan
 	});
 
 	scored.sort((a, b) => b.priority - a.priority);
+	return scored;
+}
+
+export async function buildDailyPlan(durationMinutes: number): Promise<DailyPlan> {
+	const plugins = getAllPlugins().filter((p) => !p.requiresPressure);
+	const allResults = await getAllResults();
+	const scored = rankPlugins(plugins, allResults);
 
 	const roughExCount = Math.max(3, Math.round(durationMinutes / 2.5));
 	const selected = scored.slice(0, roughExCount);
@@ -67,4 +74,21 @@ export async function buildDailyPlan(durationMinutes: number): Promise<DailyPlan
 			shapesCount: SHAPES_PER_EXERCISE,
 		})),
 	};
+}
+
+/** Pick the single best next exercise, excluding `currentType`. */
+export async function getNextRecommended(currentType?: string): Promise<{ type: string; label: string } | null> {
+	const plugins = getAllPlugins().filter((p) => !p.requiresPressure);
+	const allResults = await getAllResults();
+	const scored = rankPlugins(plugins, allResults);
+
+	for (const s of scored) {
+		if (s.plugin.id !== currentType) {
+			return { type: s.plugin.id, label: s.plugin.label };
+		}
+	}
+	if (scored.length > 0) {
+		return { type: scored[0].plugin.id, label: scored[0].plugin.label };
+	}
+	return null;
 }

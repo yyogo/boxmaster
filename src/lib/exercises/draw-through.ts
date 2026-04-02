@@ -129,7 +129,7 @@ export const drawThroughPlugin = defineExercise({
 		let result: { visibleEdges: LineParams[]; hiddenEdges: LineParams[] } | null = null;
 
 		for (let attempt = 0; attempt < 40; attempt++) {
-			const edgeW = minDim * (0.18 + Math.random() * 0.20);
+			const edgeW = minDim * (0.25 + Math.random() * 0.20);
 			const edgeH = edgeW * (0.6 + Math.random() * 0.6);
 			const maxSz = Math.max(edgeW, edgeH) * 2;
 			const slots = placeNonOverlapping(1, canvasW, canvasH, () => ({ w: maxSz, h: maxSz }), 50, 30);
@@ -146,7 +146,7 @@ export const drawThroughPlugin = defineExercise({
 		}
 
 		if (!result) {
-			const edgeW = minDim * 0.22;
+			const edgeW = minDim * 0.30;
 			const edgeH = edgeW * 0.8;
 			const cy = s.horizonY + canvasH * 0.25;
 			const hDir = s.vp.x > canvasW / 2 ? -1 : 1;

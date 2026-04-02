@@ -303,7 +303,7 @@ export const perspectivePlugin = defineExercise({
 
 		let params: PerspectiveBoxParams | null = null;
 		for (let attempt = 0; attempt < 40; attempt++) {
-			const edgeW = minDim * (0.18 + Math.random() * 0.20);
+			const edgeW = minDim * (0.25 + Math.random() * 0.20);
 			const edgeH = edgeW * (0.6 + Math.random() * 0.6);
 
 			const maxSz = Math.max(edgeW, edgeH) * 2;
@@ -322,7 +322,7 @@ export const perspectivePlugin = defineExercise({
 		}
 		if (!params) {
 			// Fallback: place corner well away from VP horizontally
-			const edgeW = minDim * 0.22;
+			const edgeW = minDim * 0.30;
 			const edgeH = edgeW * 0.8;
 			const cy = s.horizonY + canvasH * 0.25;
 			const hDir = s.vp.x > canvasW / 2 ? -1 : 1;

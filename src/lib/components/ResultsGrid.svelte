@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import type { RoundResult, MetricKey, StrokeScore } from '$lib/scoring/types';
 	import { METRIC_KEYS, METRIC_LABELS } from '$lib/scoring/types';
 	import type { ExerciseConfig } from '$lib/exercises/types';
@@ -15,14 +15,19 @@
 		onRetry: () => void;
 		onClose: () => void;
 		onMenu: () => void;
+		onNext?: () => void;
+		nextLabel?: string;
 	}
 
-	let { rounds, exerciseType, aggregateScore, totalTime, onRetry, onClose, onMenu }: Props = $props();
+	let { rounds, exerciseType, aggregateScore, totalTime, onRetry, onClose, onMenu, onNext, nextLabel }: Props = $props();
 
 	let canvasRefs: HTMLCanvasElement[] = $state([]);
 	let gridEl: HTMLElement;
 	let hoveredRound: number | null = $state(null);
 	let tooltipPos = $state({ x: 0, y: 0 });
+
+	let galleryIndex: number | null = $state(null);
+	let galleryCanvas: HTMLCanvasElement | null = $state(null);
 
 	function scoreColor(val: number): string {
 		if (val >= 80) return '#4ade80';
@@ -70,6 +75,11 @@
 		return metricsFromScores(rounds[hoveredRound].strokeScores);
 	});
 
+	let galleryBreakdown = $derived.by(() => {
+		if (galleryIndex == null || galleryIndex >= rounds.length) return [];
+		return metricsFromScores(rounds[galleryIndex].strokeScores);
+	});
+
 	function handleCellEnter(e: MouseEvent, idx: number) {
 		hoveredRound = idx;
 		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -84,7 +94,34 @@
 		hoveredRound = null;
 	}
 
-	function renderThumbnail(canvas: HTMLCanvasElement, round: RoundResult) {
+	function openGallery(idx: number) {
+		galleryIndex = idx;
+		tick().then(renderGallery);
+	}
+
+	function closeGallery() {
+		galleryIndex = null;
+	}
+
+	function galleryPrev() {
+		if (galleryIndex == null) return;
+		galleryIndex = (galleryIndex - 1 + rounds.length) % rounds.length;
+		tick().then(renderGallery);
+	}
+
+	function galleryNext() {
+		if (galleryIndex == null) return;
+		galleryIndex = (galleryIndex + 1) % rounds.length;
+		tick().then(renderGallery);
+	}
+
+	function galleryKey(e: KeyboardEvent) {
+		if (e.key === 'Escape') closeGallery();
+		else if (e.key === 'ArrowLeft') galleryPrev();
+		else if (e.key === 'ArrowRight') galleryNext();
+	}
+
+	function renderCanvas(canvas: HTMLCanvasElement, round: RoundResult, bg: string) {
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return;
 
@@ -95,7 +132,7 @@
 		canvas.height = ch * dpr;
 		ctx.scale(dpr, dpr);
 
-		ctx.fillStyle = '#12122a';
+		ctx.fillStyle = bg;
 		ctx.fillRect(0, 0, cw, ch);
 
 		const allPts: { x: number; y: number }[] = [];
@@ -117,7 +154,7 @@
 			if (p.y > maxY) maxY = p.y;
 		}
 
-		const pad = 12;
+		const pad = 24;
 		const scaleX = (cw - pad * 2) / Math.max(1, maxX - minX);
 		const scaleY = (ch - pad * 2) / Math.max(1, maxY - minY);
 		const scale = Math.min(scaleX, scaleY, 2);
@@ -152,6 +189,15 @@
 		ctx.restore();
 	}
 
+	function renderThumbnail(canvas: HTMLCanvasElement, round: RoundResult) {
+		renderCanvas(canvas, round, '#12122a');
+	}
+
+	function renderGallery() {
+		if (galleryIndex == null || !galleryCanvas) return;
+		renderCanvas(galleryCanvas, rounds[galleryIndex], '#0c0c1e');
+	}
+
 	onMount(() => {
 		const timer = setTimeout(() => {
 			for (let i = 0; i < rounds.length; i++) {
@@ -164,7 +210,7 @@
 	});
 </script>
 
-<div class="results-overlay" bind:this={gridEl}>
+<div class="results-overlay">
 	<button class="close-btn" onclick={onClose} title="Close">✕</button>
 
 	<div class="results-header">
@@ -196,13 +242,15 @@
 		</div>
 	{/if}
 
-	<div class="results-grid">
+	<div class="results-grid" bind:this={gridEl}>
 		{#each rounds as round, i}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<div
 				class="grid-cell"
 				onmouseenter={(e) => handleCellEnter(e, i)}
 				onmouseleave={handleCellLeave}
+				onclick={() => openGallery(i)}
 			>
 				<canvas
 					bind:this={canvasRefs[i]}
@@ -229,7 +277,54 @@
 		{/if}
 	</div>
 
+	{#if galleryIndex != null}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+		<div class="gallery-backdrop" onclick={closeGallery} onkeydown={galleryKey} tabindex="-1" role="dialog">
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<div class="gallery-panel" onclick={(e) => e.stopPropagation()}>
+				<button class="gallery-close" onclick={closeGallery}>✕</button>
+
+				<div class="gallery-score" style="color: {scoreColor(rounds[galleryIndex].shapeScore)}">
+					{rounds[galleryIndex].shapeScore}
+					<span class="gallery-counter">{galleryIndex + 1} / {rounds.length}</span>
+				</div>
+
+				<canvas
+					bind:this={galleryCanvas}
+					class="gallery-canvas"
+				></canvas>
+
+				{#if galleryBreakdown.length > 0}
+					<div class="gallery-metrics">
+						{#each galleryBreakdown as item}
+							<div class="gallery-metric-row">
+								<span class="gallery-metric-label">{item.label}</span>
+								<div class="gallery-metric-bar-bg">
+									<div class="gallery-metric-bar-fill" style="width: {item.value}%; background: {item.color}"></div>
+								</div>
+								<span class="gallery-metric-value" style="color: {item.color}">{item.value}</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
+
+				<div class="gallery-nav">
+					<button class="gallery-nav-btn" onclick={galleryPrev} title="Previous (←)">‹</button>
+					<button class="gallery-nav-btn" onclick={galleryNext} title="Next (→)">›</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
 	<div class="results-actions">
+		{#if onNext}
+			<button class="action-btn next" onclick={onNext}>
+				Next Exercise
+				{#if nextLabel}<span class="next-label">{nextLabel}</span>{/if}
+			</button>
+		{/if}
 		<button class="action-btn primary" onclick={onRetry}>Try Again</button>
 		<button class="action-btn secondary" onclick={onMenu}>Back to Menu</button>
 	</div>
@@ -436,7 +531,7 @@
 		border-radius: 8px;
 		overflow: hidden;
 		border: 1px solid rgba(255, 255, 255, 0.06);
-		cursor: default;
+		cursor: pointer;
 		transition: border-color 0.15s;
 	}
 
@@ -482,6 +577,27 @@
 		background: rgba(76, 110, 245, 0.95);
 	}
 
+	.action-btn.next {
+		background: linear-gradient(135deg, rgba(76, 110, 245, 0.85), rgba(124, 58, 237, 0.85));
+		border-color: rgba(76, 110, 245, 0.5);
+		color: #fff;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 2px;
+	}
+
+	.action-btn.next:hover {
+		background: linear-gradient(135deg, rgba(76, 110, 245, 1), rgba(124, 58, 237, 1));
+		box-shadow: 0 2px 12px rgba(76, 110, 245, 0.35);
+	}
+
+	.next-label {
+		font-size: 0.65rem;
+		font-weight: 400;
+		opacity: 0.7;
+	}
+
 	.action-btn.secondary {
 		background: rgba(255, 255, 255, 0.06);
 		border-color: rgba(255, 255, 255, 0.12);
@@ -491,6 +607,154 @@
 	.action-btn.secondary:hover {
 		background: rgba(255, 255, 255, 0.12);
 		color: #ddd;
+	}
+
+	/* --- Gallery --- */
+
+	.gallery-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 50;
+		background: rgba(0, 0, 0, 0.75);
+		backdrop-filter: blur(6px);
+		-webkit-backdrop-filter: blur(6px);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		animation: fadeIn 0.2s ease-out;
+	}
+
+	.gallery-panel {
+		position: relative;
+		background: rgba(15, 15, 35, 0.98);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: 16px;
+		padding: 24px;
+		width: 90vw;
+		max-width: 640px;
+		max-height: 90vh;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 16px;
+		overflow-y: auto;
+	}
+
+	.gallery-close {
+		position: absolute;
+		top: 10px;
+		right: 10px;
+		width: 32px;
+		height: 32px;
+		border: none;
+		background: rgba(255, 255, 255, 0.08);
+		color: #aaa;
+		font-size: 1rem;
+		border-radius: 50%;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.15s;
+		z-index: 1;
+	}
+
+	.gallery-close:hover {
+		background: rgba(255, 255, 255, 0.15);
+		color: #fff;
+	}
+
+	.gallery-score {
+		font-size: 2.4rem;
+		font-weight: 700;
+		line-height: 1;
+		display: flex;
+		align-items: baseline;
+		gap: 12px;
+	}
+
+	.gallery-counter {
+		font-size: 0.8rem;
+		font-weight: 400;
+		color: #666;
+	}
+
+	.gallery-canvas {
+		width: 100%;
+		aspect-ratio: 16 / 10;
+		border-radius: 8px;
+		display: block;
+	}
+
+	.gallery-metrics {
+		width: 100%;
+		max-width: 400px;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	.gallery-metric-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.gallery-metric-label {
+		font-size: 0.7rem;
+		color: #8888aa;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		min-width: 90px;
+		flex-shrink: 0;
+	}
+
+	.gallery-metric-bar-bg {
+		flex: 1;
+		height: 6px;
+		border-radius: 3px;
+		background: rgba(255, 255, 255, 0.06);
+		overflow: hidden;
+	}
+
+	.gallery-metric-bar-fill {
+		height: 100%;
+		border-radius: 3px;
+		transition: width 0.4s ease-out;
+	}
+
+	.gallery-metric-value {
+		font-size: 0.75rem;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		min-width: 26px;
+		text-align: right;
+		flex-shrink: 0;
+	}
+
+	.gallery-nav {
+		display: flex;
+		gap: 16px;
+	}
+
+	.gallery-nav-btn {
+		width: 44px;
+		height: 44px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(255, 255, 255, 0.06);
+		color: #ccc;
+		font-size: 1.5rem;
+		border-radius: 50%;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.15s;
+	}
+
+	.gallery-nav-btn:hover {
+		background: rgba(255, 255, 255, 0.12);
+		color: #fff;
 	}
 
 	@media (max-width: 480px) {
@@ -523,6 +787,11 @@
 
 		.cell-tooltip {
 			display: none;
+		}
+
+		.gallery-panel {
+			width: 95vw;
+			padding: 16px;
 		}
 	}
 </style>
