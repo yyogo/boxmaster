@@ -45,6 +45,24 @@ const EXERCISE_TIPS: Tip[] = [
 	{ text: 'Let the weight of the pen do the work — squeeze less, press less, let gravity help.', exercises: ['constant-pressure', 'taper', 'pressure-control'] },
 	{ text: 'For tapers, start heavy and lift gradually — or the reverse. Practice both directions.', exercises: ['taper'] },
 	{ text: 'Consistent pressure comes from a relaxed grip. If your hand is tight, your pressure will spike.', exercises: ['constant-pressure'] },
+	// Hatching
+	{ text: 'Keep each hatch stroke the same length and angle — consistency matters more than speed.', exercises: ['hatching'] },
+	{ text: 'Space your hatching evenly. Imagine invisible guide rails between each line.', exercises: ['hatching'] },
+	// S-Curves
+	{ text: 'An S-curve has an inflection point — feel the direction change and flow through it smoothly.', exercises: ['s-curve'] },
+	{ text: 'Ghost the full S shape before committing. Your arm should know the path before the pen touches down.', exercises: ['s-curve'] },
+	// Converging lines
+	{ text: 'Keep your eye on the vanishing point — every line should aim toward it.', exercises: ['converging'] },
+	{ text: 'Start each stroke at the edge and draw inward. The VP is your target.', exercises: ['converging'] },
+	// Draw-through
+	{ text: 'Visualize the hidden corner before you draw. Where would the back edges meet?', exercises: ['draw-through'] },
+	{ text: 'Use the visible edges as reference — hidden edges follow the same perspective rules.', exercises: ['draw-through'] },
+	// Mirror
+	{ text: 'Focus on matching distances from the axis. Each point on your stroke should be the same distance away.', exercises: ['mirror'] },
+	{ text: 'Scan back and forth between the original and your mirror — check key points as you go.', exercises: ['mirror'] },
+	// 2-Point perspective
+	{ text: 'In 2-point perspective, only verticals stay vertical. All horizontal edges recede to a VP.', exercises: ['2-point-box'] },
+	{ text: 'Left-facing edges go to the left VP, right-facing edges go to the right VP. Never mix them.', exercises: ['2-point-box'] },
 ];
 
 const PERFORMANCE_TIPS: Tip[] = [
