@@ -17,6 +17,9 @@
 	import { computeConsistency } from '$lib/scoring/consistency';
 	import { loadPrefs, updatePrefs } from '$lib/storage/prefs';
 	import { pickTip } from '$lib/tips';
+	import { dailySession } from '$lib/daily/session.svelte';
+	import { getFeedback, type FeedbackMessage } from '$lib/daily/feedback';
+	import { recordSession } from '$lib/daily/streak';
 
 	let exerciseType: string = $derived(page.params.type as string);
 	let plugin = $derived.by(() => {
@@ -66,15 +69,25 @@
 	const TIP_SHOW_EVERY = 3;
 	const TIP_DISPLAY_MS = 6000;
 
+	let feedback: FeedbackMessage | null = $state(null);
+	let feedbackVisible = $state(false);
+	let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+	const FEEDBACK_DISPLAY_MS = 1200;
+
 	$effect(() => {
 		exerciseType; // track only this
 		untrack(() => {
 			if (!plugin) return;
-			const savedMode = loadPrefs().modes[exerciseType];
-			if (savedMode && plugin.availableModes.includes(savedMode)) {
-				mode = savedMode;
+			if (dailySession.active) {
+				mode = 'guided';
+				totalShapes = dailySession.currentShapesCount;
+			} else {
+				const savedMode = loadPrefs().modes[exerciseType];
+				if (savedMode && plugin.availableModes.includes(savedMode)) {
+					mode = savedMode;
+				}
+				totalShapes = loadPrefs().totalShapes ?? plugin.defaultCount;
 			}
-			totalShapes = loadPrefs().totalShapes ?? plugin.defaultCount;
 			resetExercise();
 		});
 	});
@@ -124,6 +137,13 @@
 		tipTimeout = setTimeout(() => { tipVisible = false; }, TIP_DISPLAY_MS);
 	}
 
+	function showFeedback(score: number) {
+		feedback = getFeedback(score);
+		feedbackVisible = true;
+		if (feedbackTimeout) clearTimeout(feedbackTimeout);
+		feedbackTimeout = setTimeout(() => { feedbackVisible = false; }, FEEDBACK_DISPLAY_MS);
+	}
+
 	function resetExercise() {
 		if (!plugin) return;
 		if (!plugin.availableModes.includes(mode)) mode = plugin.availableModes[0];
@@ -145,6 +165,9 @@
 		tipVisible = false;
 		tipShownIndices = new Set();
 		if (tipTimeout) clearTimeout(tipTimeout);
+		feedback = null;
+		feedbackVisible = false;
+		if (feedbackTimeout) clearTimeout(feedbackTimeout);
 		guideVisibility = modeForVisibility();
 		canvasRef?.resetView();
 
@@ -248,6 +271,7 @@
 		}
 
 		// Last attempt (or non-attempt exercise): pick the best result
+		let finalScore: number;
 		if (isSingleStroke && attemptsPerShape > 1) {
 			attemptScores = [...attemptScores, { strokeScores, shapeScore, strokes: [...currentStrokes] }];
 			const best = attemptScores.reduce((a, b) => b.shapeScore > a.shapeScore ? b : a);
@@ -258,6 +282,7 @@
 				shapeScore: best.shapeScore
 			};
 			rounds = [...rounds, round];
+			finalScore = best.shapeScore;
 		} else {
 			const round: RoundResult = {
 				reference: exerciseConfig!.references[0],
@@ -266,8 +291,10 @@
 				shapeScore
 			};
 			rounds = [...rounds, round];
+			finalScore = shapeScore;
 		}
 
+		showFeedback(finalScore);
 		currentAttempt = 0;
 		attemptScores = [];
 		attemptStrokes = [];
@@ -304,8 +331,9 @@
 	function startFade() {
 		const nextIndex = roundIndex + 1;
 		const timerExpired = timerMode && timeRemaining <= 0;
+		const dailyExpired = dailySession.active && dailySession.expired;
 
-		if (nextIndex >= totalShapes || timerExpired) {
+		if (nextIndex >= totalShapes || timerExpired || dailyExpired) {
 			finishExercise();
 			return;
 		}
@@ -354,10 +382,11 @@
 		stopTimer();
 		totalTime = Date.now() - exerciseStartTime;
 
-		if (rounds.length === 0) return;
+		if (rounds.length === 0) {
+			if (dailySession.active) dailyAdvance();
+			return;
+		}
 
-		// Snapshot reactive state to strip Svelte 5 Proxies before
-		// passing to IndexedDB (structured clone can't handle Proxies).
 		const plainRounds = $state.snapshot(rounds);
 
 		const aggregateScore = Math.round(
@@ -390,8 +419,29 @@
 				metricAverages,
 				consistency
 			});
+
+			if (dailySession.active) {
+				dailySession.recordExercise(exerciseType, aggregateScore, plainRounds.length);
+				dailyAdvance();
+				return;
+			}
 		} catch (err) {
 			console.error('Failed to save exercise result:', err);
+			if (dailySession.active) {
+				dailyAdvance();
+				return;
+			}
+		}
+	}
+
+	function dailyAdvance() {
+		const next = dailySession.advanceExercise();
+		if (next) {
+			goto(`/exercise/${next}`);
+		} else {
+			dailySession.stop();
+			recordSession();
+			goto('/daily-complete');
 		}
 	}
 
@@ -616,6 +666,25 @@
 		{#if tipText}
 			<div class="tip-banner" class:visible={tipVisible && !isDrawing}>
 				{tipText}
+			</div>
+		{/if}
+
+		<!-- Score feedback popup -->
+		{#if feedback}
+			<div class="feedback-popup {feedback.class}" class:visible={feedbackVisible}>
+				{feedback.text}
+			</div>
+		{/if}
+
+		<!-- Daily session HUD -->
+		{#if dailySession.active}
+			<div class="daily-hud" class:hidden={isDrawing}>
+				<span class="daily-timer" class:urgent={dailySession.remainingSeconds <= 30}>
+					{Math.floor(dailySession.remainingSeconds / 60)}:{String(dailySession.remainingSeconds % 60).padStart(2, '0')}
+				</span>
+				<span class="daily-progress">
+					{dailySession.currentIndex + 1}/{dailySession.totalExercises}
+				</span>
 			</div>
 		{/if}
 
@@ -943,10 +1012,76 @@
 		to { transform: scale(1); opacity: 1; }
 	}
 
+	/* --- Score feedback popup --- */
+
+	.feedback-popup {
+		position: absolute;
+		top: 45%;
+		left: 50%;
+		transform: translate(-50%, -50%) scale(0.5);
+		font-size: 2.4rem;
+		font-weight: 800;
+		z-index: 20;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.15s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+		text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+		letter-spacing: -0.02em;
+	}
+
+	.feedback-popup.visible {
+		opacity: 1;
+		transform: translate(-50%, -50%) scale(1);
+	}
+
+	.feedback-popup.perfect { color: #fbbf24; text-shadow: 0 0 20px rgba(251, 191, 36, 0.5); }
+	.feedback-popup.great   { color: #a78bfa; text-shadow: 0 0 16px rgba(167, 139, 250, 0.4); }
+	.feedback-popup.nice    { color: #34d399; text-shadow: 0 0 14px rgba(52, 211, 153, 0.4); }
+	.feedback-popup.good    { color: #60a5fa; text-shadow: 0 0 12px rgba(96, 165, 250, 0.3); }
+	.feedback-popup.ok      { color: #94a3b8; }
+	.feedback-popup.retry   { color: #f87171; }
+
+	/* --- Daily session HUD --- */
+
+	.daily-hud {
+		position: absolute;
+		top: 60px;
+		left: 16px;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 4px;
+		z-index: 9;
+		transition: opacity 0.2s;
+	}
+
+	.daily-timer {
+		font-size: 1.1rem;
+		font-weight: 700;
+		color: rgba(200, 200, 230, 0.7);
+		font-variant-numeric: tabular-nums;
+		letter-spacing: 0.03em;
+	}
+
+	.daily-timer.urgent {
+		color: #f87171;
+		animation: pulse 1s ease-in-out infinite;
+	}
+
+	.daily-progress {
+		font-size: 0.75rem;
+		color: rgba(160, 160, 200, 0.5);
+		font-variant-numeric: tabular-nums;
+	}
+
 	@media (max-width: 640px) {
 		.pill-btn {
 			font-size: 0.75rem;
 			padding: 5px 10px;
+		}
+
+		.feedback-popup {
+			font-size: 1.8rem;
 		}
 	}
 </style>
