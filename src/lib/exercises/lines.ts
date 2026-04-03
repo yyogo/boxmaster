@@ -50,16 +50,18 @@ export const linePlugin = defineExercise({
 		if (visibility === 'hidden') return;
 
 		const color = visibility === 'full' ? GUIDE_COLOR : HINT_COLOR;
-		const lw = visibility === 'full' ? 2 : 1.5;
 
-		ctx.beginPath();
-		ctx.moveTo(p.x1, p.y1);
-		ctx.lineTo(p.x2, p.y2);
-		ctx.strokeStyle = color;
-		ctx.lineWidth = lw;
-		ctx.setLineDash(visibility === 'full' ? [8, 6] : [6, 8]);
-		ctx.stroke();
-		ctx.setLineDash([]);
+		if (visibility === 'full') {
+			ctx.beginPath();
+			ctx.moveTo(p.x1, p.y1);
+			ctx.lineTo(p.x2, p.y2);
+			ctx.strokeStyle = color;
+			ctx.lineWidth = 2;
+			ctx.setLineDash([8, 6]);
+			ctx.stroke();
+			ctx.setLineDash([]);
+		}
+
 		drawDot(ctx, p.x1, p.y1, 4, color);
 		drawDot(ctx, p.x2, p.y2, 4, color);
 	},
