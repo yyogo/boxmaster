@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { base } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import '$lib/exercises/init';
@@ -87,8 +88,8 @@
 		{/if}
 
 		<div class="actions">
-			<button class="btn-primary" onclick={() => goto('/')}>Back to Menu</button>
-			<button class="btn-secondary" onclick={() => goto('/progress')}>View Progress</button>
+			<button class="btn-primary" onclick={() => goto(`${base}/`)}>Back to Menu</button>
+			<button class="btn-secondary" onclick={() => goto(`${base}/progress`)}>View Progress</button>
 		</div>
 	</div>
 </div>

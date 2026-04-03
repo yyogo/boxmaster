@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { base } from '$app/paths';
 	import { onMount } from 'svelte';
 	import ProgressChart from '$lib/components/ProgressChart.svelte';
 	import type { ExerciseResult } from '$lib/scoring/types';
@@ -83,7 +84,7 @@
 	{#if summaries.length === 0}
 		<div class="empty">
 			<p>No exercises completed yet.</p>
-			<a href="/" class="start-link">Start practicing →</a>
+			<a href="{base}/" class="start-link">Start practicing →</a>
 		</div>
 	{:else}
 		<div class="summary-grid">

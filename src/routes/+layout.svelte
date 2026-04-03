@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { base } from '$app/paths';
 	let { children } = $props();
 </script>
 
@@ -9,10 +10,10 @@
 
 <div class="app">
 	<nav class="nav">
-		<a href="/" class="nav-brand">BoxMaster</a>
+		<a href="{base}/" class="nav-brand">BoxMaster</a>
 		<div class="nav-links">
-			<a href="/">Exercises</a>
-			<a href="/progress">Progress</a>
+			<a href="{base}/">Exercises</a>
+			<a href="{base}/progress">Progress</a>
 		</div>
 	</nav>
 

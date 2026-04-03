@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { base } from '$app/paths';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { onMount, untrack } from 'svelte';
@@ -551,7 +552,7 @@
 			} else {
 				dailySession.stop();
 				recordSession();
-				goto('/daily-complete');
+				goto(`${base}/daily-complete`);
 			}
 		} else if (nextExercise) {
 			goto(`/exercise/${nextExercise.type}`);
@@ -692,7 +693,7 @@
 
 		<!-- Top overlay -->
 		<div class="overlay-top" class:hidden={isDrawing}>
-			<button class="pill-btn" onclick={() => goto('/')}>← Back</button>
+			<button class="pill-btn" onclick={() => goto(`${base}/`)}>← Back</button>
 
 			<div class="mode-pills">
 				{#each plugin?.availableModes ?? [] as m}
@@ -829,7 +830,7 @@
 			{totalTime}
 			onRetry={handleRetry}
 			onClose={handleRetry}
-			onMenu={() => goto('/')}
+			onMenu={() => goto(`${base}/`)}
 			onNext={nextExercise ? handleNextExercise : undefined}
 			nextLabel={nextExercise?.label}
 		/>
