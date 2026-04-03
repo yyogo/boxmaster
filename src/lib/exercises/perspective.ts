@@ -286,7 +286,7 @@ export const perspectivePlugin = defineExercise({
 	label: '1-Point Perspective Box',
 	icon: '⬟',
 	description: 'Complete boxes in single-point perspective. Three edges are given — draw the remaining nine.',
-	availableModes: ['guided', 'challenge'],
+	availableModes: ['tracing', 'challenge'],
 	requiredStrokes: 9,
 	defaultCount: 10,
 
@@ -337,7 +337,7 @@ export const perspectivePlugin = defineExercise({
 			mode,
 			strokeCount: params.expectedEdges.length,
 			references: [{ type: '1-point-box', params }],
-			availableModes: ['guided', 'challenge']
+			availableModes: ['tracing', 'challenge']
 		};
 	},
 

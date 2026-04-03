@@ -244,7 +244,7 @@ export const hatchingPlugin = defineExercise({
 	label: 'Hatching',
 	icon: '≡',
 	description: 'Draw even, parallel, evenly-spaced strokes — the foundation of shading.',
-	availableModes: ['guided', 'challenge', 'free'],
+	availableModes: ['tracing', 'challenge', 'free'],
 	requiredStrokes: 14,
 	defaultCount: 8,
 
@@ -256,7 +256,7 @@ export const hatchingPlugin = defineExercise({
 			mode,
 			strokeCount: params.lines.length,
 			references: [{ type: 'hatching', params }],
-			availableModes: ['guided', 'challenge', 'free']
+			availableModes: ['tracing', 'challenge', 'free']
 		};
 	},
 

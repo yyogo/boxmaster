@@ -184,7 +184,7 @@ export const pressureControlPlugin = defineExercise({
 	label: 'Pressure Control',
 	icon: '🖊',
 	description: 'Trace curves and lines with precise pressure: constant or tapered. Combines geometry and pressure mastery.',
-	availableModes: ['guided'],
+	availableModes: ['tracing'],
 	requiredStrokes: 1,
 	defaultCount: 15,
 	requiresPressure: true,
@@ -236,7 +236,7 @@ export const pressureControlPlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'pressure-control', params }],
-			availableModes: ['guided']
+			availableModes: ['tracing']
 		};
 	},
 

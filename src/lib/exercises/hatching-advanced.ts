@@ -166,7 +166,7 @@ export const hatchingAdvancedPlugin = defineExercise({
 	icon: '⌇',
 	description:
 		'Parallel hatching inside curved or irregular silhouettes — practice maintaining spacing and direction on real forms.',
-	availableModes: ['guided', 'challenge', 'free'],
+	availableModes: ['tracing', 'challenge', 'free'],
 	requiredStrokes: 14,
 	defaultCount: 6,
 
@@ -178,7 +178,7 @@ export const hatchingAdvancedPlugin = defineExercise({
 			mode,
 			strokeCount: params.lines.length,
 			references: [{ type: 'hatching-advanced', params }],
-			availableModes: ['guided', 'challenge', 'free']
+			availableModes: ['tracing', 'challenge', 'free']
 		};
 	},
 

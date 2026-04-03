@@ -58,7 +58,7 @@ export const taperPlugin = defineExercise({
 	label: 'Taper',
 	icon: '◥',
 	description: 'Trace a tapered line, gradually increasing or decreasing pressure. Requires pressure-sensitive input.',
-	availableModes: ['guided'],
+	availableModes: ['tracing'],
 	requiredStrokes: 1,
 	defaultCount: 15,
 	requiresPressure: true,
@@ -89,7 +89,7 @@ export const taperPlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'taper', params }],
-			availableModes: ['guided']
+			availableModes: ['tracing']
 		};
 	},
 

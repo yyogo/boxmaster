@@ -166,7 +166,7 @@ export const planeEllipsePlugin = defineExercise({
 	label: 'Plane Ellipses',
 	icon: '▱',
 	description: 'Draw ellipses inscribed in perspective rectangles — learn how circles look on tilted planes.',
-	availableModes: ['guided', 'challenge'],
+	availableModes: ['tracing', 'challenge'],
 	requiredStrokes: 1,
 	defaultCount: 15,
 
@@ -228,7 +228,7 @@ export const planeEllipsePlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'plane-ellipse', params }],
-			availableModes: ['guided', 'challenge'],
+			availableModes: ['tracing', 'challenge'],
 		};
 	},
 

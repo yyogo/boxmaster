@@ -45,7 +45,7 @@
 	let fadingLayer: FadingLayer | null = $state(null);
 	let guideVisibility: GuideVisibility = $state('full');
 	let lightTheme = $state(savedPrefs.lightTheme);
-	let mode: ExerciseMode = $state('guided');
+	let mode: ExerciseMode = $state('tracing');
 	/** Set after stroke 1: which local-Y side we fill from (basic hatching only). */
 	let hatchFillFromLow = $state<boolean | null>(null);
 	let canvasRef: Canvas | null = $state(null);
@@ -98,7 +98,7 @@
 		untrack(() => {
 			if (!plugin) return;
 			if (dailySession.active) {
-				mode = 'guided';
+				mode = 'tracing';
 				totalShapes = dailySession.currentShapesCount;
 			} else {
 				const savedMode = loadPrefs().modes[exerciseType];

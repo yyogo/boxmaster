@@ -72,7 +72,7 @@ export const convergingPlugin = defineExercise({
 	label: 'Converging Lines',
 	icon: '⟩',
 	description: 'Draw lines that converge toward a vanishing point — builds perspective intuition.',
-	availableModes: ['guided', 'challenge'],
+	availableModes: ['tracing', 'challenge'],
 	requiredStrokes: 6,
 	defaultCount: 8,
 
@@ -92,7 +92,7 @@ export const convergingPlugin = defineExercise({
 			mode,
 			strokeCount: params.lines.length,
 			references: [{ type: 'converging', params }],
-			availableModes: ['guided', 'challenge'],
+			availableModes: ['tracing', 'challenge'],
 		};
 	},
 

@@ -111,7 +111,7 @@ export const drawThroughPlugin = defineExercise({
 	label: 'Draw-Through Boxes',
 	icon: '⬡',
 	description: 'See a nearly-complete box — draw the 3 hidden back edges to develop 3D thinking.',
-	availableModes: ['guided', 'challenge'],
+	availableModes: ['tracing', 'challenge'],
 	requiredStrokes: 3,
 	defaultCount: 10,
 
@@ -167,7 +167,7 @@ export const drawThroughPlugin = defineExercise({
 			mode,
 			strokeCount: 3,
 			references: [{ type: 'draw-through', params }],
-			availableModes: ['guided', 'challenge'],
+			availableModes: ['tracing', 'challenge'],
 		};
 	},
 

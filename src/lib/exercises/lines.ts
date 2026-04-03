@@ -25,7 +25,7 @@ export const linePlugin = defineExercise({
 	label: 'Lines',
 	icon: '╱',
 	description: 'Draw straight lines between two points. Focus on confident, smooth strokes.',
-	availableModes: ['guided', 'challenge', 'free'],
+	availableModes: ['tracing', 'challenge', 'free'],
 	requiredStrokes: 1,
 	defaultCount: 20,
 
@@ -41,7 +41,7 @@ export const linePlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'line', params }],
-			availableModes: ['guided', 'challenge', 'free']
+			availableModes: ['tracing', 'challenge', 'free']
 		};
 	},
 

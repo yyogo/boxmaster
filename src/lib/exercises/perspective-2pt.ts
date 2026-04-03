@@ -119,7 +119,7 @@ export const perspective2PtPlugin = defineExercise({
 	label: '2-Point Perspective Box',
 	icon: '⬢',
 	description: 'Build boxes with two vanishing points — the most common perspective in scene drawing.',
-	availableModes: ['guided', 'challenge'],
+	availableModes: ['tracing', 'challenge'],
 	requiredStrokes: 11,
 	defaultCount: 8,
 
@@ -170,7 +170,7 @@ export const perspective2PtPlugin = defineExercise({
 			mode,
 			strokeCount: params.expectedEdges.length,
 			references: [{ type: '2-point-box', params }],
-			availableModes: ['guided', 'challenge'],
+			availableModes: ['tracing', 'challenge'],
 		};
 	},
 

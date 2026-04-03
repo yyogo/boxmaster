@@ -1,4 +1,4 @@
-export type ExerciseMode = 'guided' | 'challenge' | 'free';
+export type ExerciseMode = 'tracing' | 'challenge' | 'free';
 
 // Concrete param types for built-in exercises.
 // Plugins define their own params internally and cast as needed.

@@ -53,7 +53,7 @@ export const constantPressurePlugin = defineExercise({
 	label: 'Constant Pressure',
 	icon: '▬',
 	description: 'Draw along the line with steady, even pressure. Requires pressure-sensitive input (pen/stylus).',
-	availableModes: ['guided'],
+	availableModes: ['tracing'],
 	requiredStrokes: 1,
 	defaultCount: 15,
 	requiresPressure: true,
@@ -80,7 +80,7 @@ export const constantPressurePlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'constant-pressure', params }],
-			availableModes: ['guided']
+			availableModes: ['tracing']
 		};
 	},
 

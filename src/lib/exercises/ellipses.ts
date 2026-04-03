@@ -40,7 +40,7 @@ export const ellipsePlugin = defineExercise({
 	label: 'Ellipses',
 	icon: '⬮',
 	description: 'Draw ellipses at various orientations. Keep your strokes smooth and even.',
-	availableModes: ['guided', 'challenge'],
+	availableModes: ['tracing', 'challenge'],
 	requiredStrokes: 1,
 	defaultCount: 20,
 
@@ -65,7 +65,7 @@ export const ellipsePlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'ellipse', params }],
-			availableModes: ['guided', 'challenge']
+			availableModes: ['tracing', 'challenge']
 		};
 	},
 

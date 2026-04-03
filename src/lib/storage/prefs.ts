@@ -9,7 +9,7 @@ export interface UserPrefs {
 	timerMode: boolean;
 	timerSeconds: number;
 	penOnly: boolean;
-	/** Per-exercise-type mode, e.g. { "line": "guided", "circle": "free" } */
+	/** Per-exercise-type mode, e.g. { "line": "tracing", "circle": "free" } */
 	modes: Record<string, ExerciseMode>;
 }
 

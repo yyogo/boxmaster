@@ -287,7 +287,7 @@ export const freeBoxesPlugin = defineExercise({
 	icon: '⬙',
 	description:
 		'Draw complete boxes in 3-point perspective. All three vanishing points are on-canvas for rapid convergence practice.',
-	availableModes: ['guided', 'challenge'] as ExerciseMode[],
+	availableModes: ['tracing', 'challenge'] as ExerciseMode[],
 	requiredStrokes: 9,
 	defaultCount: 10,
 	manualCompletion: true,
@@ -312,7 +312,7 @@ export const freeBoxesPlugin = defineExercise({
 			mode,
 			strokeCount: 9,
 			references: [{ type: 'free-boxes', params }],
-			availableModes: ['guided', 'challenge'],
+			availableModes: ['tracing', 'challenge'],
 		};
 	},
 

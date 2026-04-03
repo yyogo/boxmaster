@@ -60,7 +60,7 @@ export const rectanglePlugin = defineExercise({
 	label: 'Rectangles',
 	icon: '▭',
 	description: 'Draw rectangles with straight edges and square corners.',
-	availableModes: ['guided', 'challenge', 'free'],
+	availableModes: ['tracing', 'challenge', 'free'],
 	requiredStrokes: 4,
 	defaultCount: 15,
 
@@ -85,7 +85,7 @@ export const rectanglePlugin = defineExercise({
 			mode,
 			strokeCount: 4,
 			references: [{ type: 'rectangle', params }],
-			availableModes: ['guided', 'challenge', 'free']
+			availableModes: ['tracing', 'challenge', 'free']
 		};
 	},
 

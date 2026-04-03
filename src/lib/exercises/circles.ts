@@ -34,7 +34,7 @@ export const circlePlugin = defineExercise({
 	label: 'Circles',
 	icon: '○',
 	description: 'Draw circles. Aim for round, even shapes with a single confident stroke.',
-	availableModes: ['guided', 'challenge'],
+	availableModes: ['tracing', 'challenge'],
 	requiredStrokes: 1,
 	defaultCount: 20,
 
@@ -54,7 +54,7 @@ export const circlePlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'circle', params }],
-			availableModes: ['guided', 'challenge']
+			availableModes: ['tracing', 'challenge']
 		};
 	},
 

@@ -171,10 +171,10 @@
 		const miniConfig: ExerciseConfig = {
 			unit: plugin.unit,
 			type: ref.type,
-			mode: 'guided',
+			mode: 'tracing',
 			strokeCount: round.strokes.length,
 			references: [ref],
-			availableModes: ['guided']
+			availableModes: ['tracing']
 		};
 		renderGuides(ctx, miniConfig, 'full');
 
