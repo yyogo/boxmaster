@@ -548,14 +548,14 @@
 		if (dailySession.active) {
 			const next = dailySession.advanceExercise();
 			if (next) {
-				goto(`/exercise/${next}`);
+				goto(`${base}/exercise/${next}`);
 			} else {
 				dailySession.stop();
 				recordSession();
 				goto(`${base}/daily-complete`);
 			}
 		} else if (nextExercise) {
-			goto(`/exercise/${nextExercise.type}`);
+			goto(`${base}/exercise/${nextExercise.type}`);
 		}
 	}
 

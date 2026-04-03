@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { base } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import ExercisePicker from '$lib/components/ExercisePicker.svelte';
@@ -12,7 +13,7 @@
 	const DURATION_OPTIONS = [5, 10, 15, 20, 30];
 
 	function handleSelect(type: string) {
-		goto(`/exercise/${type}`);
+		goto(`${base}/exercise/${type}`);
 	}
 
 	async function startDaily() {
@@ -20,7 +21,7 @@
 		await dailySession.start(dailyMinutes);
 		const first = dailySession.currentExercise;
 		starting = false;
-		if (first) goto(`/exercise/${first}`);
+		if (first) goto(`${base}/exercise/${first}`);
 	}
 
 	onMount(() => {
