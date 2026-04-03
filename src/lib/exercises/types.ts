@@ -85,6 +85,13 @@ export interface PressureControlParams {
 	endPressure: number;
 }
 
+export interface ThreePointBoxParams {
+	vps: [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }];
+	yCorner: { x: number; y: number };
+	yEdges: [LineParams, LineParams, LineParams];
+	expectedEdges: Array<LineParams & { vpIndex: 0 | 1 | 2 }>;
+}
+
 export interface ReferenceShape {
 	type: string;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any

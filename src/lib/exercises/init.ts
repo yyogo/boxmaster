@@ -17,3 +17,4 @@ import './draw-through';
 import './mirror';
 import './perspective-2pt';
 import './plane-ellipse';
+import './free-boxes';

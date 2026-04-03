@@ -28,6 +28,8 @@ export interface ExercisePlugin {
   requiredStrokes: number;
   defaultCount: number;
   requiresPressure?: boolean;
+  manualCompletion?: boolean;
+  instructions?: string;
 
   generate(
     mode: ExerciseMode,
@@ -95,6 +97,19 @@ export interface ExercisePlugin {
     canvasH: number,
     mode: ExerciseMode,
   ): boolean;
+
+  renderReview?(
+    ctx: CanvasRenderingContext2D,
+    params: Record<string, unknown>,
+    strokes: Stroke[],
+  ): void;
+
+  /** During review, merge a new stroke into the existing set (e.g. replace the old stroke targeting the same edge). */
+  onReviewStroke?(
+    newStroke: Stroke,
+    existingStrokes: Stroke[],
+    reference: ReferenceShape,
+  ): Stroke[];
 }
 
 export type ExercisePluginConfig = Omit<
@@ -107,6 +122,10 @@ export type ExercisePluginConfig = Omit<
   | "renderStroke"
   | "renderScoredStroke"
   | "scoreStrokesForRound"
+  | "renderReview"
+  | "onReviewStroke"
+  | "manualCompletion"
+  | "instructions"
 > &
   Partial<
     Pick<
@@ -119,6 +138,10 @@ export type ExercisePluginConfig = Omit<
       | "renderStroke"
       | "renderScoredStroke"
       | "scoreStrokesForRound"
+      | "renderReview"
+      | "onReviewStroke"
+      | "manualCompletion"
+      | "instructions"
     >
   >;
 
@@ -130,9 +153,9 @@ const METRIC_WEIGHTS: Record<MetricKey, number> = {
   speedConsistency: 0.15,
   endpointAccuracy: 0.15,
   closureGap: 0.15,
-  pressureControl: 0.20,
-  taperQuality: 0.20,
-  strokeEconomy: 0.10,
+  pressureControl: 0.2,
+  taperQuality: 0.2,
+  strokeEconomy: 0.1,
 };
 
 export function compositeScore(score: StrokeScore): number {
@@ -162,7 +185,10 @@ export interface MetricConfig {
   pathDeviation?: number | null;
   smoothness?: boolean;
   speedConsistency?: boolean;
-  endpointAccuracy?: { start: { x: number; y: number }; end: { x: number; y: number } };
+  endpointAccuracy?: {
+    start: { x: number; y: number };
+    end: { x: number; y: number };
+  };
   closureGap?: { perimeter: number };
   pressureControl?: boolean | { target: number[] };
   taperQuality?: { startPressure: number; endPressure: number };
@@ -194,34 +220,58 @@ export function buildMetricScore(
     score.speedConsistency = scoreSpeedConsistency(points);
   }
   if (config.endpointAccuracy) {
-    score.endpointAccuracy = scoreEndpointAccuracy(points, config.endpointAccuracy);
+    score.endpointAccuracy = scoreEndpointAccuracy(
+      points,
+      config.endpointAccuracy,
+    );
   }
   if (config.closureGap) {
     score.closureGap = scoreClosureGap(points, config.closureGap.perimeter);
   }
   if (config.pressureControl) {
-    const target = typeof config.pressureControl === 'object' ? config.pressureControl.target : undefined;
+    const target =
+      typeof config.pressureControl === "object"
+        ? config.pressureControl.target
+        : undefined;
     score.pressureControl = scorePressureControl(points, target);
   }
   if (config.taperQuality) {
     score.taperQuality = scoreTaperQuality(points, config.taperQuality);
   }
   if (config.strokeEconomy) {
-    score.strokeEconomy = scoreStrokeEconomy(config.strokeEconomy.actual, config.strokeEconomy.expected);
+    score.strokeEconomy = scoreStrokeEconomy(
+      config.strokeEconomy.actual,
+      config.strokeEconomy.expected,
+    );
   }
 
   // Collect segment-level diagnostics
   const segments: ScoredSegment[] = [...(config.extraSegments ?? [])];
 
   for (const h of detectHesitations(points)) {
-    segments.push({ startIdx: h.start, endIdx: h.end, issue: "hesitation", severity: 0.7 });
+    segments.push({
+      startIdx: h.start,
+      endIdx: h.end,
+      issue: "hesitation",
+      severity: 0.7,
+    });
   }
   for (const j of detectJitter(points)) {
-    segments.push({ startIdx: j.start, endIdx: j.end, issue: "jittery", severity: 0.6 });
+    segments.push({
+      startIdx: j.start,
+      endIdx: j.end,
+      issue: "jittery",
+      severity: 0.6,
+    });
   }
   if (config.pressureControl || config.taperQuality) {
     for (const s of detectPressureSpikes(points)) {
-      segments.push({ startIdx: s.start, endIdx: s.end, issue: "pressure_spike", severity: 0.5 });
+      segments.push({
+        startIdx: s.start,
+        endIdx: s.end,
+        issue: "pressure_spike",
+        severity: 0.5,
+      });
     }
   }
 

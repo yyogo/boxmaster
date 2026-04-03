@@ -36,6 +36,7 @@ export interface RenderState {
 	bgColor?: string;
 	/** Basic hatching: progressive fill toward completion */
 	hatchProgress?: HatchProgressState | null;
+	reviewing?: boolean;
 }
 
 export function render(
@@ -126,6 +127,10 @@ export function render(
 		const color = state.bgColor === '#ffffff' ? '#111111' : '#ffffff';
 		if (plugin?.renderStroke) plugin.renderStroke(ctx, state.currentStroke, color, 2.5);
 		else drawStroke(ctx, state.currentStroke, color, 2.5);
+	}
+
+	if (state.reviewing && plugin?.renderReview && state.exerciseConfig && state.exerciseConfig.references.length > 0) {
+		plugin.renderReview(ctx, state.exerciseConfig.references[0].params as Record<string, unknown>, state.strokes);
 	}
 
 	ctx.restore();

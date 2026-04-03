@@ -32,8 +32,9 @@
 
 	const savedPrefs = loadPrefs();
 
-	type Phase = 'drawing' | 'fading' | 'complete';
+	type Phase = 'drawing' | 'reviewing' | 'checked' | 'fading' | 'complete';
 	let phase: Phase = $state('drawing');
+	let isManualCompletion = $derived(plugin?.manualCompletion ?? false);
 	let roundIndex = $state(0);
 	let totalShapes = $state(savedPrefs.totalShapes);
 	let exerciseConfig: ExerciseConfig | null = $state(null);
@@ -145,6 +146,12 @@
 	}
 
 	function showNextTip() {
+		if (plugin?.instructions) {
+			tipText = plugin.instructions;
+			tipVisible = true;
+			if (tipTimeout) clearTimeout(tipTimeout);
+			return;
+		}
 		const recent = rounds.slice(-4).flatMap(r => r.strokeScores);
 		const { text, index } = pickTip(exerciseType, recent, tipShownIndices);
 		tipShownIndices.add(index);
@@ -236,9 +243,14 @@
 
 	function handleStrokeComplete(stroke: Stroke) {
 		isDrawing = false;
-		if (phase !== 'drawing') return;
-		if (!isStrokeRelevant(stroke)) return;
-		currentStrokes = [...currentStrokes, stroke];
+		if (phase !== 'drawing' && phase !== 'reviewing') return;
+		if (phase === 'drawing' && !isStrokeRelevant(stroke)) return;
+
+		if (phase === 'reviewing' && plugin?.onReviewStroke && exerciseConfig) {
+			currentStrokes = plugin.onReviewStroke(stroke, currentStrokes, exerciseConfig.references[0]);
+		} else {
+			currentStrokes = [...currentStrokes, stroke];
+		}
 
 		if (
 			exerciseType === 'hatching' &&
@@ -252,7 +264,7 @@
 			);
 		}
 
-		if (plugin && currentStrokes.length >= strokesNeededForRound()) {
+		if (plugin && !isManualCompletion && currentStrokes.length >= strokesNeededForRound()) {
 			scoreAndAdvance();
 		}
 	}
@@ -262,19 +274,50 @@
 	}
 
 	function handleUndo() {
-		if (phase !== 'drawing' || currentStrokes.length === 0) return;
+		if ((phase !== 'drawing' && phase !== 'reviewing') || currentStrokes.length === 0) return;
 		currentStrokes = currentStrokes.slice(0, -1);
-		if (currentStrokes.length === 0) hatchFillFromLow = null;
+		if (currentStrokes.length === 0) {
+			hatchFillFromLow = null;
+			if (phase === 'reviewing') phase = 'drawing';
+		}
 	}
 
 	function handleSkip() {
-		if (phase !== 'drawing') return;
+		if (phase !== 'drawing' && phase !== 'reviewing' && phase !== 'checked') return;
+		phase = 'drawing';
 		startFade();
 	}
 
 	function handleFinish() {
-		if (phase !== 'drawing' || rounds.length === 0) return;
+		if ((phase !== 'drawing' && phase !== 'reviewing' && phase !== 'checked') || rounds.length === 0) return;
 		finishExercise();
+	}
+
+	function handleDone() {
+		if (currentStrokes.length === 0) return;
+		if (phase === 'drawing') {
+			phase = 'reviewing';
+		} else if (phase === 'reviewing') {
+			phase = 'checked';
+			guideVisibility = 'full';
+		} else {
+			return;
+		}
+	}
+
+	function handleReviewNext() {
+		if (phase !== 'checked') return;
+		const { strokeScores, shapeScore } = scoreCurrentShape();
+		currentScores = strokeScores;
+		const round: RoundResult = {
+			reference: exerciseConfig!.references[0],
+			strokes: [...currentStrokes],
+			strokeScores,
+			shapeScore
+		};
+		rounds = [...rounds, round];
+		showFeedback(shapeScore);
+		startFade();
 	}
 
 	function scoreCurrentShape(): { strokeScores: StrokeScore[]; shapeScore: number } {
@@ -572,6 +615,12 @@
 		case 's':
 				if (!e.ctrlKey && !e.metaKey && phase === 'drawing') handleSkip();
 				break;
+			case 'd':
+				if (!e.ctrlKey && !e.metaKey && isManualCompletion) handleDone();
+				break;
+			case 'n':
+				if (!e.ctrlKey && !e.metaKey && phase === 'checked') handleReviewNext();
+				break;
 			case 'f':
 				if (!e.ctrlKey && !e.metaKey) handleFinish();
 				break;
@@ -588,7 +637,7 @@
 	);
 
 	let progressFraction = $derived(
-		totalShapes > 0 ? (roundIndex + (phase === 'drawing' ? 0 : 1)) / totalShapes : 0
+		totalShapes > 0 ? (roundIndex + (phase === 'drawing' || phase === 'reviewing' || phase === 'checked' ? 0 : 1)) / totalShapes : 0
 	);
 
 	function preventGesture(e: Event) { e.preventDefault(); }
@@ -622,7 +671,8 @@
 			scores={currentScores}
 			{fadingLayer}
 			hatchProgress={hatchingFillProgress}
-			inputEnabled={phase === 'drawing'}
+			inputEnabled={phase === 'drawing' || phase === 'reviewing'}
+			reviewing={phase === 'reviewing' || phase === 'checked'}
 			{penOnly}
 			bgColor={lightTheme ? '#ffffff' : undefined}
 			onStrokeComplete={handleStrokeComplete}
@@ -719,9 +769,15 @@
 
 		<!-- Bottom overlay -->
 		<div class="overlay-bottom" class:hidden={isDrawing}>
-			<button class="pill-btn" onclick={handleUndo} disabled={currentStrokes.length === 0 || phase !== 'drawing'}>Undo</button>
-			<button class="pill-btn" onclick={handleSkip} disabled={phase !== 'drawing'} title="Skip (S)">Skip</button>
-			<button class="pill-btn" onclick={handleFinish} disabled={phase !== 'drawing' || rounds.length === 0} title="Finish (F)">Finish</button>
+			<button class="pill-btn" onclick={handleUndo} disabled={currentStrokes.length === 0 || (phase !== 'drawing' && phase !== 'reviewing')}>Undo</button>
+			{#if isManualCompletion}
+				<button class="pill-btn" onclick={handleDone} disabled={currentStrokes.length === 0 || phase === 'checked'} title="Done (D)">Done</button>
+				{#if phase === 'checked'}
+					<button class="pill-btn active" onclick={handleReviewNext} title="Next (N)">Next</button>
+				{/if}
+			{/if}
+			<button class="pill-btn" onclick={handleSkip} disabled={phase !== 'drawing' && phase !== 'reviewing' && phase !== 'checked'} title="Skip (S)">Skip</button>
+			<button class="pill-btn" onclick={handleFinish} disabled={(phase !== 'drawing' && phase !== 'reviewing' && phase !== 'checked') || rounds.length === 0} title="Finish (F)">Finish</button>
 			<button class="pill-btn" onclick={() => canvasRef?.resetView()} title="Reset view (R)">⟲</button>
 			{#if penDetected}
 				<button
@@ -733,9 +789,9 @@
 			{/if}
 		</div>
 
-		<!-- Tip banner -->
+		<!-- Tip / instruction banner -->
 		{#if tipText}
-			<div class="tip-banner" class:visible={tipVisible && !isDrawing}>
+			<div class="tip-banner" class:visible={tipVisible && (!isDrawing || !!plugin?.instructions)}>
 				{tipText}
 			</div>
 		{/if}
@@ -760,7 +816,7 @@
 		{/if}
 
 		<!-- Live score flash -->
-		{#if rounds.length > 0 && phase === 'drawing'}
+		{#if rounds.length > 0 && (phase === 'drawing' || phase === 'reviewing' || phase === 'checked')}
 			<div class="live-score" class:hidden={isDrawing}>
 				{rounds[rounds.length - 1].shapeScore}
 			</div>

@@ -24,6 +24,7 @@
 		/** Basic hatching: progressive region fill (completed/total strokes) */
 		hatchProgress?: HatchProgressState | null;
 		inputEnabled?: boolean;
+		reviewing?: boolean;
 		penOnly?: boolean;
 		bgColor?: string;
 		onStrokeComplete?: (stroke: Stroke) => void;
@@ -40,6 +41,7 @@
 		fadingLayer = null,
 		hatchProgress = null,
 		inputEnabled = true,
+		reviewing = false,
 		penOnly = false,
 		bgColor,
 		onStrokeComplete,
@@ -170,7 +172,8 @@
 			scores,
 			fadingLayer,
 			bgColor,
-			hatchProgress
+			hatchProgress,
+			reviewing
 		};
 		render(ctx, canvasEl, state);
 		ctx.restore();
