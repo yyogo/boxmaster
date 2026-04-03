@@ -10,6 +10,7 @@ import './constant-pressure';
 import './taper';
 import './pressure-control';
 import './hatching';
+import './hatching-advanced';
 import './s-curves';
 import './converging';
 import './draw-through';

@@ -5,6 +5,8 @@ import { pointToSegmentDist } from '$lib/scoring/geometry';
 
 export const GUIDE_COLOR = 'rgba(100, 160, 255, 0.6)';
 export const HINT_COLOR = 'rgba(100, 160, 255, 0.5)';
+/** Closed region outline — distinct from parallel stroke guides (e.g. hatching boundary). */
+export const BOUNDARY_OUTLINE_COLOR = 'rgba(200, 190, 130, 0.88)';
 
 export function drawDot(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string): void {
 	ctx.beginPath();

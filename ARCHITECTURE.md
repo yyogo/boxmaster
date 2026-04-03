@@ -83,8 +83,7 @@ src/
 │   │
 │   ├── scoring/
 │   │   ├── geometry.ts           Point-to-segment/bezier distance, rect edge/corner helpers
-│   │   ├── flow.ts               Velocity consistency + speed scoring, hesitation/jitter
-│   │   ├── confidence.ts         Pressure variance scoring, spike detection
+│   │   ├── metrics.ts            Smoothness, speed, endpoints, pressure, hesitation/jitter, etc.
 │   │   ├── consistency.ts        Cross-session score consistency (CV-based)
 │   │   └── types.ts              StrokeScore, ScoredSegment, RoundResult, ExerciseResult
 │   │
@@ -253,8 +252,8 @@ Each stroke is scored on three axes:
 | Metric | Source | Weight |
 |--------|--------|--------|
 | **Accuracy** | Plugin-specific: point-to-reference-shape distance | 50% |
-| **Flow** | `flow.ts`: velocity consistency (CV) + speed curve | 30% |
-| **Confidence** | `confidence.ts`: pressure variance (pen only, nullable) | 20% |
+| **Flow** | `metrics.ts`: smoothness + speed consistency (CV-based) | 30% |
+| **Confidence** | `metrics.ts`: pressure control / taper (pen exercises, nullable) | 20% |
 
 ### Extensible metrics
 

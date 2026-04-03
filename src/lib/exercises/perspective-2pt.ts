@@ -23,7 +23,7 @@ export interface TwoPointBoxParams {
 	verticalIndices: number[];
 }
 
-const GUIDE_COLOR_FAINT = 'rgba(100, 160, 255, 0.15)';
+const GUIDE_COLOR_FAINT = 'rgba(130, 185, 255, 0.48)';
 const SCAFFOLD_COLOR = 'rgba(255, 200, 80, 0.7)';
 const VP_COLOR = 'rgba(255, 120, 80, 0.9)';
 const VP2_COLOR = 'rgba(80, 200, 255, 0.9)';
@@ -200,7 +200,7 @@ export const perspective2PtPlugin = defineExercise({
 
 	renderGuide(ctx: CanvasRenderingContext2D, params: Record<string, unknown>, visibility: GuideVisibility) {
 		const p = params as unknown as TwoPointBoxParams;
-		const VERT_HINT_COLOR = 'rgba(180, 220, 255, 0.25)';
+		const VERT_HINT_COLOR = 'rgba(190, 225, 255, 0.55)';
 
 		ctx.beginPath();
 		ctx.moveTo(p.givenEdge.x1, p.givenEdge.y1);
@@ -223,7 +223,7 @@ export const perspective2PtPlugin = defineExercise({
 				ctx.setLineDash([]);
 			}
 		} else if (visibility === 'hints') {
-			const BACK_VERT_COLOR = 'rgba(255, 180, 100, 0.25)';
+			const BACK_VERT_COLOR = 'rgba(255, 195, 120, 0.55)';
 			const backIdx = p.verticalIndices[p.verticalIndices.length - 1];
 
 			for (const idx of p.verticalIndices) {

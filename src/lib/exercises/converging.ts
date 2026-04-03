@@ -1,10 +1,11 @@
 import type { ExerciseConfig, ExerciseMode, LineParams, ReferenceShape } from './types';
-import type { StrokePoint, Stroke } from '$lib/input/stroke';
+import type { Stroke, StrokePoint } from '$lib/input/stroke';
 import type { StrokeScore } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
 import { defineExercise, buildMetricScore, getStrokePoints, strokeChord, angleDiff, type CoordTransform } from './plugin';
 import { registerExercise } from './registry';
 import { GUIDE_COLOR, HINT_COLOR, drawDot, scoreLineAccuracy, highlightLineDivergent } from './utils';
+import { assignStrokesToLinesMinCost } from './hatching-geometry';
 
 export interface ConvergingParams {
 	vp: { x: number; y: number };
@@ -130,7 +131,12 @@ export const convergingPlugin = defineExercise({
 		}
 	},
 
-	scoreStroke(points: StrokePoint[], reference: ReferenceShape, strokeIndex: number): StrokeScore {
+	scoreStroke(
+		points: StrokePoint[],
+		reference: ReferenceShape,
+		strokeIndex: number,
+		_mode: ExerciseMode
+	): StrokeScore {
 		const p = reference.params as unknown as ConvergingParams;
 		if (strokeIndex >= p.lines.length) {
 			return buildMetricScore(points, { smoothness: true, speedConsistency: true });
@@ -143,6 +149,27 @@ export const convergingPlugin = defineExercise({
 			speedConsistency: true,
 			endpointAccuracy: { start: { x: line.x1, y: line.y1 }, end: { x: line.x2, y: line.y2 } },
 			extraSegments: extra,
+		});
+	},
+
+	scoreStrokesForRound(strokes: Stroke[], reference: ReferenceShape, _mode: ExerciseMode): StrokeScore[] {
+		const p = reference.params as unknown as ConvergingParams;
+		const n = Math.min(strokes.length, p.lines.length);
+		const subStrokes = strokes.slice(0, n);
+		const subLines = p.lines.slice(0, n);
+		const lineForStroke = assignStrokesToLinesMinCost(subStrokes, subLines);
+		return subStrokes.map((stroke, si) => {
+			const pts = getStrokePoints(stroke);
+			const li = lineForStroke[si];
+			const line = p.lines[li];
+			const extra = highlightLineDivergent(pts, line);
+			return buildMetricScore(pts, {
+				pathDeviation: scoreLineAccuracy(pts, line),
+				smoothness: true,
+				speedConsistency: true,
+				endpointAccuracy: { start: { x: line.x1, y: line.y1 }, end: { x: line.x2, y: line.y2 } },
+				extraSegments: extra,
+			});
 		});
 	},
 

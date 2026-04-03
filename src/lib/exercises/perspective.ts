@@ -9,7 +9,7 @@ import { registerExercise } from './registry';
 
 import { drawDot } from './utils';
 
-const GUIDE_COLOR_FAINT = 'rgba(100, 160, 255, 0.15)';
+const GUIDE_COLOR_FAINT = 'rgba(130, 185, 255, 0.48)';
 const SCAFFOLD_COLOR = 'rgba(255, 200, 80, 0.7)';
 const VP_COLOR = 'rgba(255, 120, 80, 0.9)';
 const GIVEN_EDGE_COLOR = 'rgba(180, 220, 255, 0.8)';

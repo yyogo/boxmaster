@@ -10,6 +10,7 @@
 	import { METRIC_KEYS } from '$lib/scoring/types';
 	import type { GuideVisibility } from '$lib/canvas/guides';
 	import type { FadingLayer } from '$lib/canvas/renderer';
+	import { computeHatchFillFromLow, type HatchParams } from '$lib/exercises/hatching';
 	import '$lib/exercises/init';
 	import { getPlugin } from '$lib/exercises/registry';
 	import { defaultShapeScore } from '$lib/exercises/plugin';
@@ -43,6 +44,8 @@
 	let guideVisibility: GuideVisibility = $state('full');
 	let lightTheme = $state(savedPrefs.lightTheme);
 	let mode: ExerciseMode = $state('guided');
+	/** Set after stroke 1: which local-Y side we fill from (basic hatching only). */
+	let hatchFillFromLow = $state<boolean | null>(null);
 	let canvasRef: Canvas | null = $state(null);
 	let isDrawing = $state(false);
 	let penDetected = $state(false);
@@ -63,6 +66,16 @@
 	let attemptStrokes: Stroke[] = $state([]);
 	let attemptScores: { strokeScores: StrokeScore[]; shapeScore: number; strokes: Stroke[] }[] = $state([]);
 	let isSingleStroke = $derived(plugin ? plugin.requiredStrokes === 1 : false);
+
+	let hatchingFillProgress = $derived.by(() => {
+		if (exerciseType !== 'hatching' || mode === 'free' || !exerciseConfig) return null;
+		return {
+			completed: currentStrokes.length,
+			total: exerciseConfig.strokeCount,
+			fillFromLowY: hatchFillFromLow,
+			lightTheme
+		};
+	});
 
 	let tipText = $state('');
 	let tipVisible = $state(false);
@@ -173,6 +186,7 @@
 		feedbackVisible = false;
 		if (feedbackTimeout) clearTimeout(feedbackTimeout);
 		nextExercise = null;
+		hatchFillFromLow = null;
 		guideVisibility = modeForVisibility();
 		canvasRef?.resetView();
 
@@ -214,13 +228,31 @@
 		return true;
 	}
 
+	function strokesNeededForRound(): number {
+		if (!plugin) return 0;
+		if (exerciseConfig && exerciseConfig.strokeCount > 0) return exerciseConfig.strokeCount;
+		return plugin.requiredStrokes;
+	}
+
 	function handleStrokeComplete(stroke: Stroke) {
 		isDrawing = false;
 		if (phase !== 'drawing') return;
 		if (!isStrokeRelevant(stroke)) return;
 		currentStrokes = [...currentStrokes, stroke];
 
-		if (plugin && currentStrokes.length >= plugin.requiredStrokes) {
+		if (
+			exerciseType === 'hatching' &&
+			mode !== 'free' &&
+			exerciseConfig &&
+			currentStrokes.length === 1
+		) {
+			hatchFillFromLow = computeHatchFillFromLow(
+				stroke,
+				exerciseConfig.references[0].params as HatchParams
+			);
+		}
+
+		if (plugin && currentStrokes.length >= strokesNeededForRound()) {
 			scoreAndAdvance();
 		}
 	}
@@ -232,6 +264,7 @@
 	function handleUndo() {
 		if (phase !== 'drawing' || currentStrokes.length === 0) return;
 		currentStrokes = currentStrokes.slice(0, -1);
+		if (currentStrokes.length === 0) hatchFillFromLow = null;
 	}
 
 	function handleSkip() {
@@ -250,10 +283,15 @@
 		}
 
 		const ref = exerciseConfig.references[0];
-		const strokeScores: StrokeScore[] = currentStrokes.map((stroke, i) => {
-			const pts = stroke.smoothedPoints.length > 0 ? stroke.smoothedPoints : stroke.rawPoints;
-			return plugin!.scoreStroke(pts, ref, i, mode);
-		});
+		let strokeScores: StrokeScore[];
+		if ('scoreStrokesForRound' in plugin && plugin.scoreStrokesForRound) {
+			strokeScores = plugin.scoreStrokesForRound(currentStrokes, ref, mode);
+		} else {
+			strokeScores = currentStrokes.map((stroke, i) => {
+				const pts = stroke.smoothedPoints.length > 0 ? stroke.smoothedPoints : stroke.rawPoints;
+				return plugin!.scoreStroke(pts, ref, i, mode);
+			});
+		}
 
 		const shapeScore = plugin.computeShapeScore
 			? plugin.computeShapeScore(strokeScores)
@@ -307,6 +345,7 @@
 	}
 
 	function fadeAttemptStroke() {
+		hatchFillFromLow = null;
 		fadingLayer = {
 			config: exerciseConfig!,
 			strokes: [...currentStrokes],
@@ -348,9 +387,19 @@
 			strokes: [...currentStrokes],
 			scores: currentScores,
 			alpha: 1,
-			guideVisibility
+			guideVisibility,
+			hatchProgress:
+				exerciseType === 'hatching' && mode !== 'free'
+					? {
+							completed: currentStrokes.length,
+							total: exerciseConfig!.strokeCount,
+							fillFromLowY: hatchFillFromLow,
+							lightTheme
+						}
+					: null
 		};
 
+		hatchFillFromLow = null;
 		roundIndex = nextIndex;
 		currentStrokes = [];
 		currentScores = null;
@@ -572,6 +621,7 @@
 			strokes={currentStrokes}
 			scores={currentScores}
 			{fadingLayer}
+			hatchProgress={hatchingFillProgress}
 			inputEnabled={phase === 'drawing'}
 			{penOnly}
 			bgColor={lightTheme ? '#ffffff' : undefined}

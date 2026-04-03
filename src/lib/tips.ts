@@ -46,8 +46,9 @@ const EXERCISE_TIPS: Tip[] = [
 	{ text: 'For tapers, start heavy and lift gradually — or the reverse. Practice both directions.', exercises: ['taper'] },
 	{ text: 'Consistent pressure comes from a relaxed grip. If your hand is tight, your pressure will spike.', exercises: ['constant-pressure'] },
 	// Hatching
-	{ text: 'Keep each hatch stroke the same length and angle — consistency matters more than speed.', exercises: ['hatching'] },
-	{ text: 'Space your hatching evenly. Imagine invisible guide rails between each line.', exercises: ['hatching'] },
+	{ text: 'Keep each hatch stroke the same length and angle — consistency matters more than speed.', exercises: ['hatching', 'hatching-advanced'] },
+	{ text: 'Space your hatching evenly. Imagine invisible guide rails between each line.', exercises: ['hatching', 'hatching-advanced'] },
+	{ text: 'On curved boundaries, let each chord stay parallel to the others — follow the silhouette, not the border stroke-for-stroke.', exercises: ['hatching-advanced'] },
 	// S-Curves
 	{ text: 'An S-curve has an inflection point — feel the direction change and flow through it smoothly.', exercises: ['s-curve'] },
 	{ text: 'Ghost the full S shape before committing. Your arm should know the path before the pen touches down.', exercises: ['s-curve'] },

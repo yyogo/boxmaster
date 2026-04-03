@@ -73,6 +73,12 @@ export interface ExercisePlugin {
     strokeIndex: number,
     mode: ExerciseMode,
   ): StrokeScore;
+  /** When set, used instead of per-stroke scoreStroke mapping (e.g. order-free hatch matching). */
+  scoreStrokesForRound?(
+    strokes: Stroke[],
+    reference: ReferenceShape,
+    mode: ExerciseMode,
+  ): StrokeScore[];
   computeShapeScore?(strokeScores: StrokeScore[]): number;
 
   getCenter(params: Record<string, unknown>): { x: number; y: number };
@@ -100,6 +106,7 @@ export type ExercisePluginConfig = Omit<
   | "renderScaffold"
   | "renderStroke"
   | "renderScoredStroke"
+  | "scoreStrokesForRound"
 > &
   Partial<
     Pick<
@@ -111,6 +118,7 @@ export type ExercisePluginConfig = Omit<
       | "renderScaffold"
       | "renderStroke"
       | "renderScoredStroke"
+      | "scoreStrokesForRound"
     >
   >;
 

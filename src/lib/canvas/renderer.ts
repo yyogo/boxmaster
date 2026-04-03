@@ -6,6 +6,14 @@ import { applyTransform, worldToScreen } from './transform';
 import { renderGuides, type GuideVisibility } from './guides';
 import { renderHighlights } from './highlights';
 import { getPlugin, tryGetPlugin } from '$lib/exercises/registry';
+import { renderHatchFillProgress, type HatchParams } from '$lib/exercises/hatching';
+
+export interface HatchProgressState {
+	completed: number;
+	total: number;
+	fillFromLowY: boolean | null;
+	lightTheme: boolean;
+}
 
 export interface FadingLayer {
 	config: ExerciseConfig;
@@ -13,6 +21,8 @@ export interface FadingLayer {
 	scores: StrokeScore[] | null;
 	alpha: number;
 	guideVisibility: GuideVisibility;
+	/** Snapshot for hatching fill overlay during fade */
+	hatchProgress?: HatchProgressState | null;
 }
 
 export interface RenderState {
@@ -24,6 +34,8 @@ export interface RenderState {
 	scores: StrokeScore[] | null;
 	fadingLayer?: FadingLayer | null;
 	bgColor?: string;
+	/** Basic hatching: progressive fill toward completion */
+	hatchProgress?: HatchProgressState | null;
 }
 
 export function render(
@@ -50,6 +62,21 @@ export function render(
 		const flPlugin = tryGetPlugin(fl.config.type);
 		ctx.save();
 		ctx.globalAlpha = fl.alpha;
+		if (
+			fl.config.type === 'hatching' &&
+			fl.hatchProgress &&
+			fl.hatchProgress.fillFromLowY !== null &&
+			fl.hatchProgress.total > 0
+		) {
+			const hp = fl.config.references[0].params as HatchParams;
+			renderHatchFillProgress(
+				ctx,
+				hp,
+				fl.hatchProgress.completed / fl.hatchProgress.total,
+				fl.hatchProgress.fillFromLowY,
+				fl.hatchProgress.lightTheme
+			);
+		}
 		renderGuides(ctx, fl.config, fl.guideVisibility);
 		for (let i = 0; i < fl.strokes.length; i++) {
 			const score = fl.scores?.[i] ?? null;
@@ -65,6 +92,21 @@ export function render(
 	}
 
 	if (state.exerciseConfig) {
+		if (
+			state.exerciseConfig.type === 'hatching' &&
+			state.hatchProgress &&
+			state.hatchProgress.fillFromLowY !== null &&
+			state.hatchProgress.total > 0
+		) {
+			const hp = state.exerciseConfig.references[0].params as HatchParams;
+			renderHatchFillProgress(
+				ctx,
+				hp,
+				state.hatchProgress.completed / state.hatchProgress.total,
+				state.hatchProgress.fillFromLowY,
+				state.hatchProgress.lightTheme
+			);
+		}
 		renderGuides(ctx, state.exerciseConfig, state.guideVisibility);
 	}
 

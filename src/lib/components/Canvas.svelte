@@ -13,7 +13,7 @@
 		handlePointerUp,
 		type PointerState
 	} from '$lib/input/pointer';
-	import { render, type RenderState, type FadingLayer } from '$lib/canvas/renderer';
+	import { render, type RenderState, type FadingLayer, type HatchProgressState } from '$lib/canvas/renderer';
 
 	interface Props {
 		exerciseConfig: ExerciseConfig | null;
@@ -21,6 +21,8 @@
 		strokes: Stroke[];
 		scores: StrokeScore[] | null;
 		fadingLayer?: FadingLayer | null;
+		/** Basic hatching: progressive region fill (completed/total strokes) */
+		hatchProgress?: HatchProgressState | null;
 		inputEnabled?: boolean;
 		penOnly?: boolean;
 		bgColor?: string;
@@ -36,6 +38,7 @@
 		strokes,
 		scores = null,
 		fadingLayer = null,
+		hatchProgress = null,
 		inputEnabled = true,
 		penOnly = false,
 		bgColor,
@@ -166,7 +169,8 @@
 			guideVisibility,
 			scores,
 			fadingLayer,
-			bgColor
+			bgColor,
+			hatchProgress
 		};
 		render(ctx, canvasEl, state);
 		ctx.restore();

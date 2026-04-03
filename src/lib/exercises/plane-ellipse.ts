@@ -2,7 +2,6 @@ import type { ExerciseConfig, ExerciseMode, ReferenceShape } from './types';
 import type { StrokePoint, Stroke } from '$lib/input/stroke';
 import type { StrokeScore } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
-import { pointToSegmentDist } from '$lib/scoring/geometry';
 import { placeNonOverlapping } from './placement';
 import { defineExercise, buildMetricScore, getStrokePoints, strokeArcLen } from './plugin';
 import { registerExercise } from './registry';
@@ -10,6 +9,59 @@ import { drawDot } from './utils';
 import type { PerspectiveSession } from './perspective';
 
 type Pt = { x: number; y: number };
+
+/**
+ * 3x3 homography stored row-major, normalised so h9 = 1:
+ *   | h1 h2 h3 |     [u]     [w·x]
+ *   | h4 h5 h6 |  ×  [v]  =  [w·y]
+ *   | h7 h8  1 |     [1]     [ w ]
+ */
+interface Homography {
+	h1: number; h2: number; h3: number;
+	h4: number; h5: number; h6: number;
+	h7: number; h8: number;
+}
+
+function computeHomography(A: Pt, B: Pt, C: Pt, D: Pt): Homography {
+	const a = C.x - B.x, b = C.x - D.x, c = B.x + D.x - A.x - C.x;
+	const d = C.y - B.y, e = C.y - D.y, f = B.y + D.y - A.y - C.y;
+	const det = a * e - b * d;
+	const h7 = (c * e - b * f) / det;
+	const h8 = (a * f - c * d) / det;
+	return {
+		h1: B.x * (h7 + 1) - A.x,
+		h2: D.x * (h8 + 1) - A.x,
+		h3: A.x,
+		h4: B.y * (h7 + 1) - A.y,
+		h5: D.y * (h8 + 1) - A.y,
+		h6: A.y,
+		h7, h8,
+	};
+}
+
+function applyH(H: Homography, u: number, v: number): Pt {
+	const w = H.h7 * u + H.h8 * v + 1;
+	return {
+		x: (H.h1 * u + H.h2 * v + H.h3) / w,
+		y: (H.h4 * u + H.h5 * v + H.h6) / w,
+	};
+}
+
+function invertH(H: Homography): Homography {
+	const { h1: a, h2: b, h3: c, h4: d, h5: e, h6: f, h7: g, h8: h } = H;
+	const det = a * (e - f * h) - b * (d - f * g) + c * (d * h - e * g);
+	const raw = [
+		e - f * h, c * h - b, b * f - c * e,
+		f * g - d, a - c * g, c * d - a * f,
+		d * h - e * g, b * g - a * h, a * e - b * d,
+	];
+	const s = raw[8] / det;
+	return {
+		h1: raw[0] / det / s, h2: raw[1] / det / s, h3: raw[2] / det / s,
+		h4: raw[3] / det / s, h5: raw[4] / det / s, h6: raw[5] / det / s,
+		h7: raw[6] / det / s, h8: raw[7] / det / s,
+	};
+}
 
 export interface PlaneEllipseParams {
 	corners: Pt[];
@@ -35,11 +87,6 @@ function drawCrosshair(ctx: CanvasRenderingContext2D, x: number, y: number, size
 	ctx.stroke();
 }
 
-/**
- * Generate a perspective quadrilateral (rectangle receding toward VP).
- * corners[0..3] = A (near-left), B (near-right), C (far-right), D (far-left).
- * The inscribed curve is sampled via bilinear mapping of the unit circle.
- */
 function generatePlane(
 	vp: Pt,
 	horizonY: number,
@@ -70,18 +117,15 @@ function generatePlane(
 	const C: Pt = { x: B.x + dxB * depthFraction, y: B.y + dyB * depthFraction };
 	const corners = [A, B, C, D];
 
+	const H = computeHomography(A, B, C, D);
+
 	const N = 80;
 	const curvePoints: Pt[] = [];
 	for (let i = 0; i < N; i++) {
 		const t = (i / N) * Math.PI * 2;
-		const u = 0.5 + 0.5 * Math.cos(t);
-		const v = 0.5 + 0.5 * Math.sin(t);
-		const x = (1 - v) * ((1 - u) * A.x + u * B.x) + v * ((1 - u) * D.x + u * C.x);
-		const y = (1 - v) * ((1 - u) * A.y + u * B.y) + v * ((1 - u) * D.y + u * C.y);
-		curvePoints.push({ x, y });
+		curvePoints.push(applyH(H, 0.5 + 0.5 * Math.cos(t), 0.5 + 0.5 * Math.sin(t)));
 	}
 
-	// Reject if the curve is too thin (aspect ratio > 4:1)
 	const cxs = curvePoints.map(p => p.x);
 	const cys = curvePoints.map(p => p.y);
 	const spanX = Math.max(...cxs) - Math.min(...cxs);
@@ -102,22 +146,18 @@ function curvePerimeter(pts: Pt[]): number {
 	return len;
 }
 
-function scoreCurveAccuracy(points: StrokePoint[], curve: Pt[]): number {
+function scoreCurveAccuracy(points: StrokePoint[], corners: Pt[]): number {
+	const Hinv = invertH(computeHomography(corners[0], corners[1], corners[2], corners[3]));
+
 	let totalDist = 0;
 	for (const p of points) {
-		let minD = Infinity;
-		for (let i = 0; i < curve.length; i++) {
-			const j = (i + 1) % curve.length;
-			const d = pointToSegmentDist(p.x, p.y, {
-				x1: curve[i].x, y1: curve[i].y,
-				x2: curve[j].x, y2: curve[j].y,
-			});
-			if (d < minD) minD = d;
-		}
-		totalDist += minD;
+		const uv = applyH(Hinv, p.x, p.y);
+		const dx = uv.x - 0.5;
+		const dy = uv.y - 0.5;
+		totalDist += Math.abs(Math.sqrt(dx * dx + dy * dy) - 0.5);
 	}
 	const avgDist = totalDist / points.length;
-	return Math.max(0, Math.min(100, 100 - (avgDist / 40) * 100));
+	return Math.max(0, Math.min(100, 100 - (avgDist / 0.20) * 100));
 }
 
 export const planeEllipsePlugin = defineExercise({
@@ -227,6 +267,15 @@ export const planeEllipsePlugin = defineExercise({
 		ctx.lineWidth = 2;
 		ctx.stroke();
 
+		// True tangent points: map the unit-circle contact points through H
+		const H = computeHomography(corners[0], corners[1], corners[2], corners[3]);
+		const tangents: Pt[] = [
+			applyH(H, 0.5, 0),   // on AB
+			applyH(H, 1,   0.5), // on BC
+			applyH(H, 0.5, 1),   // on CD
+			applyH(H, 0,   0.5), // on DA
+		];
+
 		if (visibility === 'full') {
 			ctx.beginPath();
 			ctx.moveTo(p.curvePoints[0].x, p.curvePoints[0].y);
@@ -239,23 +288,27 @@ export const planeEllipsePlugin = defineExercise({
 			ctx.setLineDash([6, 6]);
 			ctx.stroke();
 			ctx.setLineDash([]);
-		} else if (visibility === 'hints') {
-			// Midpoints of each side (where the ellipse is tangent)
-			for (let i = 0; i < corners.length; i++) {
-				const j = (i + 1) % corners.length;
-				const mx = (corners[i].x + corners[j].x) / 2;
-				const my = (corners[i].y + corners[j].y) / 2;
-				drawDot(ctx, mx, my, 3, HINT_COLOR);
+		}
+
+		if (visibility === 'full' || visibility === 'hints') {
+			const AXIS_COLOR = 'rgba(100, 160, 255, 0.3)';
+			for (let i = 0; i < 2; i++) {
+				ctx.beginPath();
+				ctx.moveTo(tangents[i].x, tangents[i].y);
+				ctx.lineTo(tangents[i + 2].x, tangents[i + 2].y);
+				ctx.strokeStyle = AXIS_COLOR;
+				ctx.lineWidth = 1;
+				ctx.setLineDash([4, 6]);
+				ctx.stroke();
+				ctx.setLineDash([]);
 			}
-			const cx = corners.reduce((s, c) => s + c.x, 0) / corners.length;
-			const cy = corners.reduce((s, c) => s + c.y, 0) / corners.length;
-			drawCrosshair(ctx, cx, cy, 6, HINT_COLOR);
+			for (const t of tangents) drawDot(ctx, t.x, t.y, 3, HINT_COLOR);
 		}
 	},
 
 	scoreStroke(points: StrokePoint[], reference: ReferenceShape): StrokeScore {
 		const p = reference.params as unknown as PlaneEllipseParams;
-		const accuracy = scoreCurveAccuracy(points, p.curvePoints);
+		const accuracy = scoreCurveAccuracy(points, p.corners);
 		const perimeter = curvePerimeter(p.curvePoints);
 		return buildMetricScore(points, {
 			pathDeviation: accuracy,
