@@ -152,11 +152,88 @@ function generateAdvanced(canvasW: number, canvasH: number, _toWorld?: CoordTran
 
 function hintLineIndices(lineCount: number): number[] {
 	if (lineCount <= 1) return [0];
-	if (lineCount === 2) return [0];
-	const lo = Math.max(1, Math.floor(lineCount / 4));
-	const hi = Math.min(lineCount - 2, lineCount - 1 - Math.floor(lineCount / 4));
-	if (lo >= hi) return [Math.floor(lineCount / 2)];
-	return [lo, hi];
+	return [0, 1];
+}
+
+/** Determine sweep direction from first stroke centroid relative to outline center. */
+export function computeAdvancedFillFromLow(stroke: Stroke, p: HatchAdvancedParams): boolean {
+	const pts = getStrokePoints(stroke);
+	if (pts.length === 0 || p.lines.length < 2) return true;
+	const line0 = p.lines[0];
+	const dx = line0.x2 - line0.x1;
+	const dy = line0.y2 - line0.y1;
+	const len = Math.sqrt(dx * dx + dy * dy);
+	if (len < 1) return true;
+	const nx = -dy / len;
+	const ny = dx / len;
+	let sc = 0;
+	for (const q of pts) { sc += nx * q.x + ny * q.y; }
+	sc /= pts.length;
+	const mid = nx * p.cx + ny * p.cy;
+	return sc < mid;
+}
+
+/**
+ * Progressive fill for advanced hatching: clips the outline polygon along the
+ * sweep axis (normal to stroke direction) and fills the clipped region.
+ */
+export function renderAdvancedFillProgress(
+	ctx: CanvasRenderingContext2D,
+	p: HatchAdvancedParams,
+	progress: number,
+	fillFromLow: boolean,
+	lightTheme: boolean,
+): void {
+	if (progress <= 0 || p.outline.length < 3 || p.lines.length < 2) return;
+	const t = Math.min(1, Math.max(0, progress));
+	const line0 = p.lines[0];
+	const dx = line0.x2 - line0.x1;
+	const dy = line0.y2 - line0.y1;
+	const len = Math.sqrt(dx * dx + dy * dy);
+	if (len < 1) return;
+	const nx = -dy / len;
+	const ny = dx / len;
+	const { min, max } = projectRangeOnNormal(p.outline, nx, ny);
+	const span = max - min;
+
+	const cutS = fillFromLow ? min + t * span : max - t * span;
+	const clipped: { x: number; y: number }[] = [];
+	const poly = p.outline;
+	const m = poly.length;
+	for (let i = 0; i < m; i++) {
+		const a = poly[i];
+		const b = poly[(i + 1) % m];
+		const sa = nx * a.x + ny * a.y;
+		const sb = nx * b.x + ny * b.y;
+		const aIn = fillFromLow ? sa <= cutS + 1e-9 : sa >= cutS - 1e-9;
+		const bIn = fillFromLow ? sb <= cutS + 1e-9 : sb >= cutS - 1e-9;
+		if (aIn && bIn) {
+			clipped.push(b);
+		} else if (aIn && !bIn) {
+			const denom = sb - sa;
+			if (Math.abs(denom) > 1e-12) {
+				const u = (cutS - sa) / denom;
+				clipped.push({ x: a.x + u * (b.x - a.x), y: a.y + u * (b.y - a.y) });
+			}
+		} else if (!aIn && bIn) {
+			const denom = sb - sa;
+			if (Math.abs(denom) > 1e-12) {
+				const u = (cutS - sa) / denom;
+				clipped.push({ x: a.x + u * (b.x - a.x), y: a.y + u * (b.y - a.y) });
+			}
+			clipped.push(b);
+		}
+	}
+	if (clipped.length < 3) return;
+
+	ctx.save();
+	ctx.beginPath();
+	ctx.moveTo(clipped[0].x, clipped[0].y);
+	for (let i = 1; i < clipped.length; i++) ctx.lineTo(clipped[i].x, clipped[i].y);
+	ctx.closePath();
+	ctx.fillStyle = lightTheme ? 'rgba(70, 120, 200, 0.16)' : 'rgba(100, 160, 255, 0.22)';
+	ctx.fill();
+	ctx.restore();
 }
 
 export const hatchingAdvancedPlugin = defineExercise({

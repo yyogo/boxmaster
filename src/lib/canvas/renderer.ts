@@ -7,6 +7,7 @@ import { renderGuides, type GuideVisibility } from './guides';
 import { renderHighlights } from './highlights';
 import { getPlugin, tryGetPlugin } from '$lib/exercises/registry';
 import { renderHatchFillProgress, type HatchParams } from '$lib/exercises/hatching';
+import { renderAdvancedFillProgress, type HatchAdvancedParams } from '$lib/exercises/hatching-advanced';
 
 export interface HatchProgressState {
 	completed: number;
@@ -64,19 +65,16 @@ export function render(
 		ctx.save();
 		ctx.globalAlpha = fl.alpha;
 		if (
-			fl.config.type === 'hatching' &&
 			fl.hatchProgress &&
 			fl.hatchProgress.fillFromLowY !== null &&
 			fl.hatchProgress.total > 0
 		) {
-			const hp = fl.config.references[0].params as HatchParams;
-			renderHatchFillProgress(
-				ctx,
-				hp,
-				fl.hatchProgress.completed / fl.hatchProgress.total,
-				fl.hatchProgress.fillFromLowY,
-				fl.hatchProgress.lightTheme
-			);
+			const progress = fl.hatchProgress.completed / fl.hatchProgress.total;
+			if (fl.config.type === 'hatching') {
+				renderHatchFillProgress(ctx, fl.config.references[0].params as HatchParams, progress, fl.hatchProgress.fillFromLowY, fl.hatchProgress.lightTheme);
+			} else if (fl.config.type === 'hatching-advanced') {
+				renderAdvancedFillProgress(ctx, fl.config.references[0].params as HatchAdvancedParams, progress, fl.hatchProgress.fillFromLowY, fl.hatchProgress.lightTheme);
+			}
 		}
 		renderGuides(ctx, fl.config, fl.guideVisibility);
 		for (let i = 0; i < fl.strokes.length; i++) {
@@ -94,19 +92,16 @@ export function render(
 
 	if (state.exerciseConfig) {
 		if (
-			state.exerciseConfig.type === 'hatching' &&
 			state.hatchProgress &&
 			state.hatchProgress.fillFromLowY !== null &&
 			state.hatchProgress.total > 0
 		) {
-			const hp = state.exerciseConfig.references[0].params as HatchParams;
-			renderHatchFillProgress(
-				ctx,
-				hp,
-				state.hatchProgress.completed / state.hatchProgress.total,
-				state.hatchProgress.fillFromLowY,
-				state.hatchProgress.lightTheme
-			);
+			const progress = state.hatchProgress.completed / state.hatchProgress.total;
+			if (state.exerciseConfig.type === 'hatching') {
+				renderHatchFillProgress(ctx, state.exerciseConfig.references[0].params as HatchParams, progress, state.hatchProgress.fillFromLowY, state.hatchProgress.lightTheme);
+			} else if (state.exerciseConfig.type === 'hatching-advanced') {
+				renderAdvancedFillProgress(ctx, state.exerciseConfig.references[0].params as HatchAdvancedParams, progress, state.hatchProgress.fillFromLowY, state.hatchProgress.lightTheme);
+			}
 		}
 		renderGuides(ctx, state.exerciseConfig, state.guideVisibility);
 	}

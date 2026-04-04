@@ -37,11 +37,7 @@ function pickRegionKind(): HatchRegionKind {
 
 function hintLineIndices(lineCount: number): number[] {
 	if (lineCount <= 1) return [0];
-	if (lineCount === 2) return [0];
-	const lo = Math.max(1, Math.floor(lineCount / 4));
-	const hi = Math.min(lineCount - 2, lineCount - 1 - Math.floor(lineCount / 4));
-	if (lo >= hi) return [Math.floor(lineCount / 2)];
-	return [lo, hi];
+	return [0, 1];
 }
 
 function generateHatch(canvasW: number, canvasH: number, _toWorld?: CoordTransform): HatchParams {

@@ -12,6 +12,7 @@
 	import type { GuideVisibility } from '$lib/canvas/guides';
 	import type { FadingLayer } from '$lib/canvas/renderer';
 	import { computeHatchFillFromLow, type HatchParams } from '$lib/exercises/hatching';
+	import { computeAdvancedFillFromLow, type HatchAdvancedParams } from '$lib/exercises/hatching-advanced';
 	import '$lib/exercises/init';
 	import { getPlugin } from '$lib/exercises/registry';
 	import { defaultShapeScore } from '$lib/exercises/plugin';
@@ -69,8 +70,10 @@
 	let attemptScores: { strokeScores: StrokeScore[]; shapeScore: number; strokes: Stroke[] }[] = $state([]);
 	let isSingleStroke = $derived(plugin ? plugin.requiredStrokes === 1 : false);
 
+	let isHatchType = $derived(exerciseType === 'hatching' || exerciseType === 'hatching-advanced');
+
 	let hatchingFillProgress = $derived.by(() => {
-		if (exerciseType !== 'hatching' || mode === 'free' || !exerciseConfig) return null;
+		if (!isHatchType || mode === 'free' || !exerciseConfig) return null;
 		return {
 			completed: currentStrokes.length,
 			total: exerciseConfig.strokeCount,
@@ -253,16 +256,12 @@
 			currentStrokes = [...currentStrokes, stroke];
 		}
 
-		if (
-			exerciseType === 'hatching' &&
-			mode !== 'free' &&
-			exerciseConfig &&
-			currentStrokes.length === 1
-		) {
-			hatchFillFromLow = computeHatchFillFromLow(
-				stroke,
-				exerciseConfig.references[0].params as HatchParams
-			);
+		if (isHatchType && mode !== 'free' && exerciseConfig && currentStrokes.length === 1) {
+			if (exerciseType === 'hatching') {
+				hatchFillFromLow = computeHatchFillFromLow(stroke, exerciseConfig.references[0].params as HatchParams);
+			} else {
+				hatchFillFromLow = computeAdvancedFillFromLow(stroke, exerciseConfig.references[0].params as HatchAdvancedParams);
+			}
 		}
 
 		if (plugin && !isManualCompletion && currentStrokes.length >= strokesNeededForRound()) {
@@ -433,7 +432,7 @@
 			alpha: 1,
 			guideVisibility,
 			hatchProgress:
-				exerciseType === 'hatching' && mode !== 'free'
+				isHatchType && mode !== 'free'
 					? {
 							completed: currentStrokes.length,
 							total: exerciseConfig!.strokeCount,

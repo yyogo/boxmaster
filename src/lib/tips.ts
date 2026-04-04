@@ -68,6 +68,10 @@ const EXERCISE_TIPS: Tip[] = [
 	{ text: 'The ellipse should touch the midpoint of each side of the rectangle — those are your tangent points.', exercises: ['plane-ellipse'] },
 	{ text: 'In perspective, circles become ellipses. The more the plane tilts away, the narrower the ellipse gets.', exercises: ['plane-ellipse'] },
 	{ text: 'Ghost the curve path before committing. Feel the oval shape with your hand first.', exercises: ['plane-ellipse'] },
+	// Shallow boxes
+	{ text: 'With subtle perspective, focus on making parallel edges converge to a single distant point.', exercises: ['shallow-boxes'] },
+	{ text: 'Extend your lines mentally to check if they would all meet at the same spot.', exercises: ['shallow-boxes'] },
+	{ text: 'The flatter the perspective, the more important consistency is over accuracy.', exercises: ['shallow-boxes'] },
 ];
 
 const PERFORMANCE_TIPS: Tip[] = [

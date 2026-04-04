@@ -70,6 +70,33 @@
 
 	let breakdown = $derived(metricsFromScores(rounds.flatMap(r => r.strokeScores)));
 
+	const METRIC_TIPS: Record<string, string> = {
+		'Path Accuracy': 'Focus on tracing closer to the target \u2014 ghost the line before committing.',
+		'Smoothness': 'Your strokes are jittery \u2014 try drawing from the shoulder with a single confident motion.',
+		'Speed Control': 'Your stroke speed is inconsistent \u2014 aim for a steady, even pace throughout.',
+		'Endpoint Precision': "You're overshooting or undershooting \u2014 ghost the endpoints before drawing.",
+		'Closure': "Your shapes aren't closing cleanly \u2014 slow down at the end to meet your start point.",
+		'Pressure': 'Your pressure varies too much \u2014 practice maintaining even pressure.',
+		'Taper': 'Work on lifting smoothly at stroke ends for cleaner tapers.',
+		'Economy': 'Try to complete each shape in fewer strokes \u2014 commit to confident single motions.',
+	};
+
+	function generateFeedback(items: Breakdown[]): string {
+		if (items.length === 0) return '';
+		if (aggregateScore >= 90) return 'Clean session \u2014 keep it up.';
+
+		const worst = items.reduce((a, b) => (a.value < b.value ? a : b));
+
+		if (worst.value >= 70) {
+			const tip = METRIC_TIPS[worst.label];
+			return tip ? `Solid work. To push higher: ${tip.charAt(0).toLowerCase()}${tip.slice(1)}` : 'Solid work \u2014 keep practicing.';
+		}
+
+		return METRIC_TIPS[worst.label] ?? 'Keep practicing \u2014 focus on one metric at a time.';
+	}
+
+	let feedbackText = $derived(generateFeedback(breakdown));
+
 	let hoveredBreakdown = $derived.by(() => {
 		if (hoveredRound == null || hoveredRound >= rounds.length) return [];
 		return metricsFromScores(rounds[hoveredRound].strokeScores);
@@ -240,6 +267,10 @@
 				</div>
 			{/each}
 		</div>
+	{/if}
+
+	{#if feedbackText}
+		<p class="results-feedback">{feedbackText}</p>
 	{/if}
 
 	<div class="results-grid" bind:this={gridEl}>
@@ -446,6 +477,15 @@
 		height: 100%;
 		border-radius: 3px;
 		transition: width 0.6s ease-out;
+	}
+
+	.results-feedback {
+		color: #9999bb;
+		font-size: 0.85rem;
+		max-width: 480px;
+		text-align: center;
+		margin: 4px 0 16px;
+		line-height: 1.45;
 	}
 
 	/* --- Hover tooltip --- */
