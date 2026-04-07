@@ -80,7 +80,7 @@ export const linePlugin = defineExercise({
 			pathDeviation: scoreLineAccuracy(points, p),
 			smoothness: true,
 			speedConsistency: true,
-			endpointAccuracy: { start: { x: p.x1, y: p.y1 }, end: { x: p.x2, y: p.y2 } },
+			endpointAccuracy: { start: { x: p.x1, y: p.y1 }, end: { x: p.x2, y: p.y2 }, startWeight: 0.7 },
 			extraSegments: extra,
 		});
 	},

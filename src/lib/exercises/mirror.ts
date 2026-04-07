@@ -19,45 +19,99 @@ function reflectPoint(p: { x: number; y: number }, axis: 'vertical' | 'horizonta
 	return { x: p.x, y: 2 * pos - p.y };
 }
 
+type Pt = { x: number; y: number };
+
+function sampleArc(cx: number, cy: number, r: number, start: number, sweep: number, n = 20): Pt[] {
+	const pts: Pt[] = [];
+	for (let i = 0; i <= n; i++) {
+		const a = start + (sweep * i) / n;
+		pts.push({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) });
+	}
+	return pts;
+}
+
+function sampleSCurve(n = 24): Pt[] {
+	const pts: Pt[] = [];
+	for (let i = 0; i <= n; i++) {
+		const t = i / n;
+		pts.push({ x: t, y: 0.5 + 0.4 * Math.sin(t * Math.PI * 2) });
+	}
+	return pts;
+}
+
+function sampleWave(n = 24): Pt[] {
+	const pts: Pt[] = [];
+	for (let i = 0; i <= n; i++) {
+		const t = i / n;
+		pts.push({ x: t, y: 0.5 + 0.35 * Math.sin(t * Math.PI * 3) });
+	}
+	return pts;
+}
+
+const SHAPE_TEMPLATES: Pt[][] = [
+	// Straight lines
+	[{ x: 0, y: 0.5 }, { x: 1, y: 0.5 }],
+	[{ x: 0, y: 1 }, { x: 1, y: 0 }],
+	[{ x: 0, y: 0 }, { x: 1, y: 1 }],
+	// L-shapes
+	[{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }],
+	[{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }],
+	// V / chevron
+	[{ x: 0, y: 0 }, { x: 0.5, y: 1 }, { x: 1, y: 0 }],
+	[{ x: 0, y: 1 }, { x: 0.5, y: 0 }, { x: 1, y: 1 }],
+	// Hook
+	[{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 0.6 }],
+	[{ x: 0, y: 0.6 }, { x: 0, y: 0 }, { x: 1, y: 0 }],
+	// Step / Z
+	[{ x: 0, y: 0 }, { x: 0.5, y: 0 }, { x: 0.5, y: 1 }, { x: 1, y: 1 }],
+	// Bracket
+	[{ x: 0.3, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 1 }, { x: 0.3, y: 1 }],
+	// Arcs
+	sampleArc(0.5, 1, 0.5, -Math.PI, Math.PI * 0.5),
+	sampleArc(0, 0.5, 0.5, -Math.PI / 2, Math.PI),
+	sampleArc(0.5, 0.5, 0.45, 0, Math.PI * 1.5),
+	// Circle
+	sampleArc(0.5, 0.5, 0.45, 0, Math.PI * 2, 30),
+	// S-curve
+	sampleSCurve(),
+	// Wave
+	sampleWave(),
+];
+
+function pickTemplate(): Pt[] {
+	const tpl = SHAPE_TEMPLATES[Math.floor(Math.random() * SHAPE_TEMPLATES.length)];
+	const pts = tpl.map(p => ({ ...p }));
+	if (Math.random() < 0.5) for (const p of pts) p.x = 1 - p.x;
+	if (Math.random() < 0.5) for (const p of pts) p.y = 1 - p.y;
+	return pts;
+}
+
 function generateMirrorShape(canvasW: number, canvasH: number): MirrorParams {
 	const axis: 'vertical' | 'horizontal' = Math.random() < 0.7 ? 'vertical' : 'horizontal';
 	const axisPosition = axis === 'vertical' ? canvasW / 2 : canvasH / 2;
 
-	const segCount = 3 + Math.floor(Math.random() * 4); // 3-6 segments
 	const minDim = Math.min(canvasW, canvasH);
-	const shapeSize = minDim * (0.15 + Math.random() * 0.15);
+	const shapeSize = minDim * (0.2 + Math.random() * 0.15);
+	const template = pickTemplate();
 
-	const originalPoints: { x: number; y: number }[] = [];
-
+	const margin = minDim * 0.08;
+	let ox: number, oy: number, spanW: number, spanH: number;
 	if (axis === 'vertical') {
-		// Shape on the left half
-		const startX = canvasW * 0.15 + Math.random() * (canvasW * 0.2);
-		const startY = canvasH * 0.25 + Math.random() * (canvasH * 0.5);
-		originalPoints.push({ x: startX, y: startY });
-
-		for (let i = 0; i < segCount; i++) {
-			const prev = originalPoints[originalPoints.length - 1];
-			const angle = (Math.PI * -0.5) + Math.random() * Math.PI; // mostly rightward
-			const len = shapeSize * (0.3 + Math.random() * 0.5);
-			const nx = Math.max(canvasW * 0.05, Math.min(axisPosition - 20, prev.x + Math.cos(angle) * len));
-			const ny = Math.max(canvasH * 0.1, Math.min(canvasH * 0.9, prev.y + Math.sin(angle) * len));
-			originalPoints.push({ x: nx, y: ny });
-		}
+		spanW = axisPosition - 2 * margin;
+		spanH = canvasH - 2 * margin;
+		ox = margin + Math.random() * Math.max(0, spanW - shapeSize);
+		oy = margin + Math.random() * Math.max(0, spanH - shapeSize);
 	} else {
-		// Shape on the top half
-		const startX = canvasW * 0.2 + Math.random() * (canvasW * 0.6);
-		const startY = canvasH * 0.1 + Math.random() * (canvasH * 0.2);
-		originalPoints.push({ x: startX, y: startY });
-
-		for (let i = 0; i < segCount; i++) {
-			const prev = originalPoints[originalPoints.length - 1];
-			const angle = Math.random() * Math.PI; // mostly downward
-			const len = shapeSize * (0.3 + Math.random() * 0.5);
-			const nx = Math.max(canvasW * 0.05, Math.min(canvasW * 0.95, prev.x + Math.cos(angle) * len));
-			const ny = Math.max(canvasH * 0.05, Math.min(axisPosition - 20, prev.y + Math.sin(angle) * len));
-			originalPoints.push({ x: nx, y: ny });
-		}
+		spanW = canvasW - 2 * margin;
+		spanH = axisPosition - 2 * margin;
+		ox = margin + Math.random() * Math.max(0, spanW - shapeSize);
+		oy = margin + Math.random() * Math.max(0, spanH - shapeSize);
 	}
+
+	const originalPoints = template.map(p => ({
+		x: ox + p.x * shapeSize,
+		y: oy + p.y * shapeSize,
+	}));
 
 	const mirroredPoints = originalPoints.map(p => reflectPoint(p, axis, axisPosition));
 	return { axis, axisPosition, originalPoints, mirroredPoints };
@@ -166,27 +220,13 @@ export const mirrorPlugin = defineExercise({
 			}
 		}
 
-		// Draw mirrored guide based on visibility
-		if (visibility === 'full') {
-			if (p.mirroredPoints.length >= 2) {
-				ctx.beginPath();
-				ctx.moveTo(p.mirroredPoints[0].x, p.mirroredPoints[0].y);
-				for (let i = 1; i < p.mirroredPoints.length; i++) {
-					ctx.lineTo(p.mirroredPoints[i].x, p.mirroredPoints[i].y);
-				}
-				ctx.strokeStyle = GUIDE_COLOR;
-				ctx.lineWidth = 1.5;
-				ctx.setLineDash([6, 6]);
-				ctx.stroke();
-				ctx.setLineDash([]);
-			}
-		}
-
-		// In challenge mode show mirrored endpoints only
-		if (visibility === 'hints' && p.mirroredPoints.length >= 2) {
+		// Tracing: show mirrored endpoint hints so the user knows where to draw
+		if (visibility === 'full' && p.mirroredPoints.length >= 2) {
 			drawDot(ctx, p.mirroredPoints[0].x, p.mirroredPoints[0].y, 4, HINT_COLOR);
 			drawDot(ctx, p.mirroredPoints[p.mirroredPoints.length - 1].x, p.mirroredPoints[p.mirroredPoints.length - 1].y, 4, HINT_COLOR);
 		}
+
+		// Challenge: only the original shape + axis are visible (no mirrored hints)
 	},
 
 	scoreStroke(points: StrokePoint[], reference: ReferenceShape): StrokeScore {

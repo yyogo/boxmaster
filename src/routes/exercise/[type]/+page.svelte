@@ -36,7 +36,6 @@
 
 	type Phase = 'drawing' | 'reviewing' | 'checked' | 'fading' | 'complete';
 	let phase: Phase = $state('drawing');
-	let isManualCompletion = $derived(plugin?.manualCompletion ?? false);
 	let roundIndex = $state(0);
 	let totalShapes = $state(savedPrefs.totalShapes);
 	let exerciseConfig: ExerciseConfig | null = $state(null);
@@ -47,6 +46,10 @@
 	let guideVisibility: GuideVisibility = $state('full');
 	let lightTheme = $state(savedPrefs.lightTheme);
 	let mode: ExerciseMode = $state('tracing');
+	let isManualCompletion = $derived(
+		(plugin?.manualCompletion ?? false) ||
+			!!(plugin?.manualCompletionModes?.includes(mode))
+	);
 	/** Set after stroke 1: which local-Y side we fill from (basic hatching only). */
 	let hatchFillFromLow = $state<boolean | null>(null);
 	let canvasRef: Canvas | null = $state(null);
@@ -250,6 +253,17 @@
 		if (phase !== 'drawing' && phase !== 'reviewing') return;
 		if (phase === 'drawing' && !isStrokeRelevant(stroke)) return;
 
+		// Converging challenge: cap strokes at round count (manual flow allows extra input otherwise)
+		if (
+			phase === 'drawing' &&
+			exerciseType === 'converging' &&
+			mode === 'challenge' &&
+			exerciseConfig &&
+			currentStrokes.length >= strokesNeededForRound()
+		) {
+			return;
+		}
+
 		if (phase === 'reviewing' && plugin?.onReviewStroke && exerciseConfig) {
 			currentStrokes = plugin.onReviewStroke(stroke, currentStrokes, exerciseConfig.references[0]);
 		} else {
@@ -295,6 +309,15 @@
 
 	function handleDone() {
 		if (currentStrokes.length === 0) return;
+		if (
+			exerciseType === 'converging' &&
+			mode === 'challenge' &&
+			phase === 'drawing' &&
+			exerciseConfig &&
+			currentStrokes.length < strokesNeededForRound()
+		) {
+			return;
+		}
 		if (phase === 'drawing') {
 			phase = 'reviewing';
 		} else if (phase === 'reviewing') {
@@ -671,7 +694,8 @@
 			scores={currentScores}
 			{fadingLayer}
 			hatchProgress={hatchingFillProgress}
-			inputEnabled={phase === 'drawing' || phase === 'reviewing'}
+			inputEnabled={phase === 'drawing' ||
+				(phase === 'reviewing' && plugin?.reviewAllowsDrawing !== false)}
 			reviewing={phase === 'reviewing' || phase === 'checked'}
 			{penOnly}
 			bgColor={lightTheme ? '#ffffff' : undefined}
@@ -771,7 +795,17 @@
 		<div class="overlay-bottom" class:hidden={isDrawing}>
 			<button class="pill-btn" onclick={handleUndo} disabled={currentStrokes.length === 0 || (phase !== 'drawing' && phase !== 'reviewing')}>Undo</button>
 			{#if isManualCompletion}
-				<button class="pill-btn" onclick={handleDone} disabled={currentStrokes.length === 0 || phase === 'checked'} title="Done (D)">Done</button>
+				<button
+					class="pill-btn"
+					onclick={handleDone}
+					disabled={currentStrokes.length === 0 ||
+						phase === 'checked' ||
+						(exerciseType === 'converging' &&
+							mode === 'challenge' &&
+							phase === 'drawing' &&
+							exerciseConfig &&
+							currentStrokes.length < strokesNeededForRound())}
+					title="Done (D)">Done</button>
 				{#if phase === 'checked'}
 					<button class="pill-btn active" onclick={handleReviewNext} title="Next (N)">Next</button>
 				{/if}

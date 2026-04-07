@@ -29,6 +29,10 @@ export interface ExercisePlugin {
   defaultCount: number;
   requiresPressure?: boolean;
   manualCompletion?: boolean;
+  /** If set, manual Done/Next flow applies only in these modes (in addition to `manualCompletion`). */
+  manualCompletionModes?: ExerciseMode[];
+  /** If false, drawing is disabled during the reviewing phase (extensions-only review). Default true. */
+  reviewAllowsDrawing?: boolean;
   instructions?: string;
 
   generate(
@@ -125,6 +129,8 @@ export type ExercisePluginConfig = Omit<
   | "renderReview"
   | "onReviewStroke"
   | "manualCompletion"
+  | "manualCompletionModes"
+  | "reviewAllowsDrawing"
   | "instructions"
 > &
   Partial<
@@ -141,6 +147,8 @@ export type ExercisePluginConfig = Omit<
       | "renderReview"
       | "onReviewStroke"
       | "manualCompletion"
+      | "manualCompletionModes"
+      | "reviewAllowsDrawing"
       | "instructions"
     >
   >;
@@ -188,6 +196,7 @@ export interface MetricConfig {
   endpointAccuracy?: {
     start: { x: number; y: number };
     end: { x: number; y: number };
+    startWeight?: number;
   };
   closureGap?: { perimeter: number };
   pressureControl?: boolean | { target: number[] };
@@ -223,6 +232,9 @@ export function buildMetricScore(
     score.endpointAccuracy = scoreEndpointAccuracy(
       points,
       config.endpointAccuracy,
+      config.endpointAccuracy.startWeight != null
+        ? { startWeight: config.endpointAccuracy.startWeight }
+        : undefined,
     );
   }
   if (config.closureGap) {

@@ -2,11 +2,23 @@
 	import { base } from '$app/paths';
 	import { onMount } from 'svelte';
 	import ProgressChart from '$lib/components/ProgressChart.svelte';
-	import type { ExerciseResult } from '$lib/scoring/types';
+	import type { ExerciseResult, MetricKey } from '$lib/scoring/types';
+	import { METRIC_KEYS, METRIC_LABELS } from '$lib/scoring/types';
 	import { getResultsByType, clearAllResults } from '$lib/storage/db';
 	import { getProgressSummaries, type ProgressSummary } from '$lib/storage/progress';
 	import '$lib/exercises/init';
 	import { tryGetPlugin } from '$lib/exercises/registry';
+
+	const METRIC_COLORS: Record<MetricKey, string> = {
+		pathDeviation: '#4c6ef5',
+		smoothness: '#4ade80',
+		speedConsistency: '#2dd4bf',
+		endpointAccuracy: '#facc15',
+		closureGap: '#a78bfa',
+		pressureControl: '#fb923c',
+		taperQuality: '#f472b6',
+		strokeEconomy: '#22d3ee',
+	};
 
 	let summaries: ProgressSummary[] = $state([]);
 	let selectedType: string | null = $state(null);
@@ -17,11 +29,33 @@
 		return tryGetPlugin(type)?.label ?? type;
 	}
 
+	function activeMetrics(history: ExerciseResult[]): MetricKey[] {
+		const seen = new Set<MetricKey>();
+		for (const r of history) {
+			for (const k of METRIC_KEYS) {
+				if (r.metricAverages?.[k] != null) seen.add(k);
+			}
+		}
+		return METRIC_KEYS.filter((k) => seen.has(k));
+	}
+
+	function metricLatestAvg(history: ExerciseResult[], key: MetricKey): number | null {
+		const recent = history.slice(-5);
+		const vals = recent.map((r) => r.metricAverages?.[key]).filter((v): v is number => v != null);
+		if (vals.length === 0) return null;
+		return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+	}
+
 	async function loadSummaries() {
 		summaries = await getProgressSummaries();
 	}
 
 	async function selectType(type: string) {
+		if (selectedType === type) {
+			selectedType = null;
+			selectedHistory = [];
+			return;
+		}
 		selectedType = type;
 		selectedHistory = await getResultsByType(type);
 	}
@@ -68,6 +102,8 @@
 		selectedHistory = [];
 	}
 
+	const metrics = $derived(activeMetrics(selectedHistory));
+
 	onMount(() => {
 		loadSummaries();
 	});
@@ -87,6 +123,42 @@
 			<a href="{base}/" class="start-link">Start practicing →</a>
 		</div>
 	{:else}
+		{#if selectedType && selectedHistory.length > 0}
+			<div class="detail-panel">
+				<div class="detail-header">
+					<h2>{exerciseLabel(selectedType)}</h2>
+					<button class="close-btn" onclick={() => { selectedType = null; selectedHistory = []; }}>✕</button>
+				</div>
+
+				<ProgressChart
+					results={selectedHistory}
+					title="Overall Score"
+				/>
+
+				{#if metrics.length > 0}
+					<div class="metrics-grid">
+						{#each metrics as mk}
+							{@const avg = metricLatestAvg(selectedHistory, mk)}
+							<div class="metric-card">
+								<div class="metric-header">
+									<span class="metric-label">{METRIC_LABELS[mk]}</span>
+									{#if avg != null}
+										<span class="metric-value" style="color: {METRIC_COLORS[mk]}">{avg}</span>
+									{/if}
+								</div>
+								<ProgressChart
+									results={selectedHistory}
+									metricKey={mk}
+									compact
+									color={METRIC_COLORS[mk]}
+								/>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/if}
+
 		<div class="summary-grid">
 			{#each summaries as s}
 				<button
@@ -120,18 +192,12 @@
 				</button>
 			{/each}
 		</div>
-
-		{#if selectedType && selectedHistory.length > 0}
-			<ProgressChart
-				results={selectedHistory}
-				title={exerciseLabel(selectedType)}
-			/>
-		{/if}
 	{/if}
 </div>
 
 {#if showResetModal}
-	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<div class="modal-backdrop" onclick={() => showResetModal = false} onkeydown={(e) => { if (e.key === 'Escape') showResetModal = false; }}>
 		<div class="modal" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()}>
 			<h2 class="modal-title">Reset All Progress?</h2>
@@ -172,6 +238,85 @@
 	.start-link:hover {
 		text-decoration: underline;
 	}
+
+	/* --- Detail panel --- */
+
+	.detail-panel {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.detail-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.detail-header h2 {
+		font-size: 1.15rem;
+		font-weight: 600;
+		color: #eeeeff;
+		margin: 0;
+	}
+
+	.close-btn {
+		background: transparent;
+		border: 1px solid #3a3a5a;
+		color: #888899;
+		width: 28px;
+		height: 28px;
+		border-radius: 8px;
+		cursor: pointer;
+		font-size: 0.8rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.15s;
+	}
+
+	.close-btn:hover {
+		border-color: #5a5a7a;
+		color: #ccccee;
+	}
+
+	/* --- Metric sparklines grid --- */
+
+	.metrics-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+		gap: 10px;
+	}
+
+	.metric-card {
+		background: #12122a;
+		border: 1px solid #222244;
+		border-radius: 10px;
+		padding: 10px 12px;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	.metric-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.metric-label {
+		font-size: 0.75rem;
+		color: #8888aa;
+		font-weight: 500;
+	}
+
+	.metric-value {
+		font-size: 0.85rem;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+	}
+
+	/* --- Summary cards --- */
 
 	.summary-grid {
 		display: grid;

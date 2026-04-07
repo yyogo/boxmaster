@@ -99,6 +99,7 @@ export function scoreSpeedConsistency(points: StrokePoint[]): number {
 export function scoreEndpointAccuracy(
 	points: StrokePoint[],
 	target: { start: { x: number; y: number }; end: { x: number; y: number } },
+	options?: { startWeight?: number },
 ): number {
 	if (points.length < 2) return 0;
 
@@ -109,17 +110,18 @@ export function scoreEndpointAccuracy(
 	);
 	if (refLen < 1) return 100;
 
-	// Allow drawing in either direction
-	const fwd =
-		Math.sqrt((s.x - target.start.x) ** 2 + (s.y - target.start.y) ** 2) +
-		Math.sqrt((e.x - target.end.x) ** 2 + (e.y - target.end.y) ** 2);
-	const rev =
-		Math.sqrt((s.x - target.end.x) ** 2 + (s.y - target.end.y) ** 2) +
-		Math.sqrt((e.x - target.start.x) ** 2 + (e.y - target.start.y) ** 2);
-	const totalDist = Math.min(fwd, rev);
+	const fwdStart = Math.sqrt((s.x - target.start.x) ** 2 + (s.y - target.start.y) ** 2);
+	const fwdEnd = Math.sqrt((e.x - target.end.x) ** 2 + (e.y - target.end.y) ** 2);
+	const revStart = Math.sqrt((s.x - target.end.x) ** 2 + (s.y - target.end.y) ** 2);
+	const revEnd = Math.sqrt((e.x - target.start.x) ** 2 + (e.y - target.start.y) ** 2);
 
-	const ratio = totalDist / refLen;
-	return Math.round(Math.max(0, Math.min(100, 100 - ratio * 200)));
+	const isForward = fwdStart + fwdEnd <= revStart + revEnd;
+	const startDist = isForward ? fwdStart : revStart;
+	const endDist = isForward ? fwdEnd : revEnd;
+
+	const sw = options?.startWeight ?? 0.5;
+	const scoreOne = (d: number) => Math.max(0, Math.min(100, 100 - (d / refLen) * 400));
+	return Math.round(sw * scoreOne(startDist) + (1 - sw) * scoreOne(endDist));
 }
 
 /**

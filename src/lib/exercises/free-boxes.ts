@@ -21,6 +21,10 @@ import { drawDot, scoreLineAccuracy, highlightLineDivergent } from './utils';
 type Pt = { x: number; y: number };
 type TaggedEdge = LineParams & { vpIndex: 0 | 1 | 2 };
 
+interface FreeBoxParams extends ThreePointBoxParams {
+	mode: ExerciseMode;
+}
+
 const VP_COLORS = [
 	'rgba(255, 120, 80, 0.9)',
 	'rgba(80, 200, 255, 0.9)',
@@ -81,24 +85,16 @@ function rayCanvasExtent(
 }
 
 function buildExpectedEdges(
-	c1: Pt,
-	c2: Pt,
-	c3: Pt,
-	c4: Pt,
-	c5: Pt,
-	c6: Pt,
-	c7: Pt,
+	c1: Pt, c2: Pt, c3: Pt,
+	c4: Pt, c5: Pt, c6: Pt, c7: Pt,
 ): TaggedEdge[] {
 	return [
-		// VP 0 group (parallel to C0→C1)
 		{ x1: c2.x, y1: c2.y, x2: c4.x, y2: c4.y, vpIndex: 0 },
 		{ x1: c3.x, y1: c3.y, x2: c5.x, y2: c5.y, vpIndex: 0 },
 		{ x1: c6.x, y1: c6.y, x2: c7.x, y2: c7.y, vpIndex: 0 },
-		// VP 1 group (parallel to C0→C2)
 		{ x1: c1.x, y1: c1.y, x2: c4.x, y2: c4.y, vpIndex: 1 },
 		{ x1: c3.x, y1: c3.y, x2: c6.x, y2: c6.y, vpIndex: 1 },
 		{ x1: c5.x, y1: c5.y, x2: c7.x, y2: c7.y, vpIndex: 1 },
-		// VP 2 group (parallel to C0→C3)
 		{ x1: c1.x, y1: c1.y, x2: c5.x, y2: c5.y, vpIndex: 2 },
 		{ x1: c2.x, y1: c2.y, x2: c6.x, y2: c6.y, vpIndex: 2 },
 		{ x1: c4.x, y1: c4.y, x2: c7.x, y2: c7.y, vpIndex: 2 },
@@ -119,6 +115,18 @@ function computeBoxVertices(
 	return { c4, c5, c6, c7 };
 }
 
+function taggedYEdges(p: ThreePointBoxParams): TaggedEdge[] {
+	return [
+		{ x1: p.yEdges[0].x1, y1: p.yEdges[0].y1, x2: p.yEdges[0].x2, y2: p.yEdges[0].y2, vpIndex: 0 },
+		{ x1: p.yEdges[1].x1, y1: p.yEdges[1].y1, x2: p.yEdges[1].x2, y2: p.yEdges[1].y2, vpIndex: 1 },
+		{ x1: p.yEdges[2].x1, y1: p.yEdges[2].y1, x2: p.yEdges[2].x2, y2: p.yEdges[2].y2, vpIndex: 2 },
+	];
+}
+
+function allEdges(p: ThreePointBoxParams): TaggedEdge[] {
+	return [...taggedYEdges(p), ...p.expectedEdges];
+}
+
 // --- Generation ---
 
 function generate3PtBox(
@@ -133,7 +141,6 @@ function generate3PtBox(
 		y: margin + Math.random() * (canvasH - 2 * margin),
 	};
 
-	// Simplex sampling: 3 angular gaps each >= π/2, summing to 2π
 	const u1 = Math.random() * (Math.PI / 2);
 	const u2 = Math.random() * (Math.PI / 2);
 	const lo = Math.min(u1, u2);
@@ -182,20 +189,13 @@ function generate3PtBox(
 	}
 
 	const expectedEdges = buildExpectedEdges(
-		endpoints[0],
-		endpoints[1],
-		endpoints[2],
-		c4,
-		c5,
-		c6,
-		c7,
+		endpoints[0], endpoints[1], endpoints[2],
+		c4, c5, c6, c7,
 	);
 
 	const minEdgeLen = minDim * 0.03;
 	for (const e of expectedEdges) {
-		if (
-			Math.sqrt((e.x2 - e.x1) ** 2 + (e.y2 - e.y1) ** 2) < minEdgeLen
-		)
+		if (Math.hypot(e.x2 - e.x1, e.y2 - e.y1) < minEdgeLen)
 			return null;
 	}
 
@@ -243,29 +243,23 @@ function generateFallbackBox(
 			{ x1: c0.x, y1: c0.y, x2: endpoints[2].x, y2: endpoints[2].y },
 		],
 		expectedEdges: buildExpectedEdges(
-			endpoints[0],
-			endpoints[1],
-			endpoints[2],
-			c4,
-			c5,
-			c6,
-			c7,
+			endpoints[0], endpoints[1], endpoints[2],
+			c4, c5, c6, c7,
 		),
 	};
 }
 
 // --- Stroke matching ---
 
-/** True if the stroke clearly follows one of the expected box edges (vs retracing the Y scaffold). */
-function strokeFollowsExpectedEdge(
+function strokeFollowsEdge(
 	pts: { x: number; y: number }[],
-	expected: TaggedEdge[],
+	edges: TaggedEdge[],
 ): boolean {
 	if (pts.length < 2) return false;
 	const chord = strokeChord(pts);
 	const sampleStep = Math.max(1, Math.floor(pts.length / 10));
-	for (const exp of expected) {
-		const el = Math.sqrt((exp.x2 - exp.x1) ** 2 + (exp.y2 - exp.y1) ** 2);
+	for (const exp of edges) {
+		const el = Math.hypot(exp.x2 - exp.x1, exp.y2 - exp.y1);
 		if (el < 1) continue;
 		let totalD = 0;
 		let samples = 0;
@@ -309,31 +303,35 @@ export const freeBoxesPlugin = defineExercise({
 	label: 'Free Boxes',
 	icon: '⬙',
 	description:
-		'Draw complete boxes in 3-point perspective. All three vanishing points are on-canvas for rapid convergence practice.',
+		'Draw complete boxes in 3-point perspective with on-canvas VPs. Tracing: trace the full wireframe. Challenge: complete from the Y-corner seed.',
 	availableModes: ['tracing', 'challenge'] as ExerciseMode[],
-	requiredStrokes: 9,
+	requiredStrokes: 12,
 	defaultCount: 10,
 	manualCompletion: true,
+	reviewAllowsDrawing: false,
 	instructions:
-		'Draw all 9 remaining edges of the box — each must converge toward one of the 3 vanishing points. Press Done to check your convergence.',
+		'Complete the box — each edge family should converge toward its VP. Press Done to see your convergence analysis.',
 
 	generate(
 		mode: ExerciseMode,
 		canvasW: number,
 		canvasH: number,
 	): ExerciseConfig {
-		let params: ThreePointBoxParams | null = null;
+		let base: ThreePointBoxParams | null = null;
 		for (let attempt = 0; attempt < 80; attempt++) {
-			params = generate3PtBox(canvasW, canvasH);
-			if (params) break;
+			base = generate3PtBox(canvasW, canvasH);
+			if (base) break;
 		}
-		if (!params) params = generateFallbackBox(canvasW, canvasH);
+		if (!base) base = generateFallbackBox(canvasW, canvasH);
+
+		const params: FreeBoxParams = { ...base, mode };
+		const strokeCount = mode === 'tracing' ? 12 : 9;
 
 		return {
 			unit: 'perspective',
 			type: 'free-boxes',
 			mode,
-			strokeCount: 9,
+			strokeCount,
 			references: [{ type: 'free-boxes', params }],
 			availableModes: ['tracing', 'challenge'],
 		};
@@ -343,20 +341,14 @@ export const freeBoxesPlugin = defineExercise({
 		ctx: CanvasRenderingContext2D,
 		params: Record<string, unknown>,
 	) {
-		const p = params as unknown as ThreePointBoxParams;
+		const p = params as unknown as FreeBoxParams;
+		if (p.mode === 'tracing') return;
+
+		// Challenge: show Y scaffold + VP markers
 		for (let i = 0; i < 3; i++) {
 			drawDot(ctx, p.vps[i].x, p.vps[i].y, 6, VP_COLORS[i]);
 			drawCrosshair(ctx, p.vps[i].x, p.vps[i].y, 10, VP_COLORS[i]);
 		}
-	},
-
-	renderGuide(
-		ctx: CanvasRenderingContext2D,
-		params: Record<string, unknown>,
-		visibility: GuideVisibility,
-	) {
-		const p = params as unknown as ThreePointBoxParams;
-
 		for (const edge of p.yEdges) {
 			ctx.beginPath();
 			ctx.moveTo(edge.x1, edge.y1);
@@ -369,17 +361,43 @@ export const freeBoxesPlugin = defineExercise({
 		for (const edge of p.yEdges) {
 			drawDot(ctx, edge.x2, edge.y2, 3, GIVEN_EDGE_COLOR);
 		}
+	},
+
+	renderGuide(
+		ctx: CanvasRenderingContext2D,
+		params: Record<string, unknown>,
+		visibility: GuideVisibility,
+	) {
+		const p = params as unknown as FreeBoxParams;
+		if (visibility === 'hidden') return;
 
 		if (visibility === 'full') {
-			for (const edge of p.expectedEdges) {
-				ctx.beginPath();
-				ctx.moveTo(edge.x1, edge.y1);
-				ctx.lineTo(edge.x2, edge.y2);
-				ctx.strokeStyle = GUIDE_COLOR_FAINT;
-				ctx.lineWidth = 1.5;
-				ctx.setLineDash([6, 6]);
-				ctx.stroke();
-				ctx.setLineDash([]);
+			if (p.mode === 'tracing') {
+				// Active tracing: show all 12 edges faintly, no VP markers
+				const all = allEdges(p);
+				for (const edge of all) {
+					ctx.beginPath();
+					ctx.moveTo(edge.x1, edge.y1);
+					ctx.lineTo(edge.x2, edge.y2);
+					ctx.strokeStyle = GUIDE_COLOR_FAINT;
+					ctx.lineWidth = 1.5;
+					ctx.setLineDash([6, 6]);
+					ctx.stroke();
+					ctx.setLineDash([]);
+				}
+				drawDot(ctx, p.yCorner.x, p.yCorner.y, 3, GUIDE_COLOR_FAINT);
+			} else {
+				// Checked phase for challenge: show expected edges faintly
+				for (const edge of p.expectedEdges) {
+					ctx.beginPath();
+					ctx.moveTo(edge.x1, edge.y1);
+					ctx.lineTo(edge.x2, edge.y2);
+					ctx.strokeStyle = GUIDE_COLOR_FAINT;
+					ctx.lineWidth = 1.5;
+					ctx.setLineDash([6, 6]);
+					ctx.stroke();
+					ctx.setLineDash([]);
+				}
 			}
 		}
 	},
@@ -389,20 +407,21 @@ export const freeBoxesPlugin = defineExercise({
 		params: Record<string, unknown>,
 		strokes: Stroke[],
 	) {
-		const p = params as unknown as ThreePointBoxParams;
+		const p = params as unknown as FreeBoxParams;
+		const matchEdges = allEdges(p);
 
 		for (const stroke of strokes) {
 			const pts = getStrokePoints(stroke);
 			if (pts.length < 2) continue;
 
-			const edge = matchStrokeToEdge(pts, p.expectedEdges);
+			const edge = matchStrokeToEdge(pts, matchEdges);
 			if (!edge) continue;
 
 			const start = pts[0];
 			const end = pts[pts.length - 1];
 			const dx = end.x - start.x;
 			const dy = end.y - start.y;
-			const len = Math.sqrt(dx * dx + dy * dy);
+			const len = Math.hypot(dx, dy);
 			if (len < 1) continue;
 			const dirX = dx / len;
 			const dirY = dy / len;
@@ -424,37 +443,14 @@ export const freeBoxesPlugin = defineExercise({
 		}
 	},
 
-	onReviewStroke(
-		newStroke: Stroke,
-		existingStrokes: Stroke[],
-		reference: ReferenceShape,
-	): Stroke[] {
-		const p = reference.params as unknown as ThreePointBoxParams;
-		const newPts = getStrokePoints(newStroke);
-		const newEdge = matchStrokeToEdge(newPts, p.expectedEdges);
-		if (!newEdge) return [...existingStrokes, newStroke];
-
-		const replaceIdx = existingStrokes.findIndex((s) => {
-			const pts = getStrokePoints(s);
-			const edge = matchStrokeToEdge(pts, p.expectedEdges);
-			return edge && edge.vpIndex === newEdge.vpIndex &&
-				edge.x1 === newEdge.x1 && edge.y1 === newEdge.y1 &&
-				edge.x2 === newEdge.x2 && edge.y2 === newEdge.y2;
-		});
-
-		if (replaceIdx >= 0) {
-			const updated = [...existingStrokes];
-			updated[replaceIdx] = newStroke;
-			return updated;
-		}
-		return [...existingStrokes, newStroke];
-	},
-
 	scoreStrokesForRound(
 		strokes: Stroke[],
 		reference: ReferenceShape,
+		mode: ExerciseMode,
 	): StrokeScore[] {
-		const p = reference.params as unknown as ThreePointBoxParams;
+		const p = reference.params as unknown as FreeBoxParams;
+		const matchEdges = mode === 'tracing' ? allEdges(p) : p.expectedEdges;
+
 		return strokes.map((stroke) => {
 			const pts = getStrokePoints(stroke);
 			if (pts.length < 2) {
@@ -463,7 +459,7 @@ export const freeBoxesPlugin = defineExercise({
 				});
 			}
 
-			const edge = matchStrokeToEdge(pts, p.expectedEdges);
+			const edge = matchStrokeToEdge(pts, matchEdges);
 			if (!edge) {
 				return buildMetricScore(pts, {
 					smoothness: true,
@@ -477,10 +473,7 @@ export const freeBoxesPlugin = defineExercise({
 			const start = pts[0];
 			const end = pts[pts.length - 1];
 			const strokeAngle = Math.atan2(end.y - start.y, end.x - start.x);
-			const toVPAngle = Math.atan2(
-				vp.y - start.y,
-				vp.x - start.x,
-			);
+			const toVPAngle = Math.atan2(vp.y - start.y, vp.x - start.x);
 			let angleDev = Math.abs(strokeAngle - toVPAngle);
 			if (angleDev > Math.PI) angleDev = 2 * Math.PI - angleDev;
 			const convergenceScore = Math.max(
@@ -519,20 +512,25 @@ export const freeBoxesPlugin = defineExercise({
 		stroke: Stroke,
 		reference: ReferenceShape,
 		canvasW: number,
+		_canvasH: number,
+		mode: ExerciseMode,
 	): boolean {
 		const pts = getStrokePoints(stroke);
 		if (pts.length < 2) return false;
 		if (strokeChord(pts) < canvasW * 0.02) return false;
 
-		const p = reference.params as unknown as ThreePointBoxParams;
-		if (strokeFollowsExpectedEdge(pts, p.expectedEdges)) return true;
+		const p = reference.params as unknown as FreeBoxParams;
+
+		if (mode === 'tracing') {
+			return strokeFollowsEdge(pts, allEdges(p));
+		}
+
+		// Challenge: accept strokes on expected edges, reject Y-retracing
+		if (strokeFollowsEdge(pts, p.expectedEdges)) return true;
 
 		const sampleStep = Math.max(1, Math.floor(pts.length / 10));
-
 		for (const edge of p.yEdges) {
-			const edgeLen = Math.sqrt(
-				(edge.x2 - edge.x1) ** 2 + (edge.y2 - edge.y1) ** 2,
-			);
+			const edgeLen = Math.hypot(edge.x2 - edge.x1, edge.y2 - edge.y1);
 			if (edgeLen < 1) continue;
 			let totalD = 0;
 			let samples = 0;
@@ -550,7 +548,7 @@ export const freeBoxesPlugin = defineExercise({
 	},
 
 	getCenter(params: Record<string, unknown>) {
-		const p = params as unknown as ThreePointBoxParams;
+		const p = params as unknown as FreeBoxParams;
 		const pts = [
 			p.yCorner,
 			...p.yEdges.map((e) => ({ x: e.x2, y: e.y2 })),
@@ -566,7 +564,7 @@ export const freeBoxesPlugin = defineExercise({
 	},
 
 	getBounds(params: Record<string, unknown>) {
-		const p = params as unknown as ThreePointBoxParams;
+		const p = params as unknown as FreeBoxParams;
 		const pts = [
 			p.yCorner,
 			...p.yEdges.map((e) => ({ x: e.x2, y: e.y2 })),
