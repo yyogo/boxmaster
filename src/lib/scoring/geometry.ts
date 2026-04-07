@@ -1,4 +1,4 @@
-import type { LineParams, RectParams, CurveParams } from '$lib/exercises/types';
+import type { LineParams, RectParams, QuadParams, CurveParams } from '$lib/exercises/types';
 
 export function pointToSegmentDist(px: number, py: number, seg: LineParams): number {
 	const dx = seg.x2 - seg.x1;
@@ -44,6 +44,32 @@ export function rectCorners(rect: RectParams): { x: number; y: number }[] {
 		{ x: rect.cx + cos * hw - sin * -hh, y: rect.cy + sin * hw + cos * -hh },
 		{ x: rect.cx + cos * hw - sin * hh, y: rect.cy + sin * hw + cos * hh },
 		{ x: rect.cx + cos * -hw - sin * hh, y: rect.cy + sin * -hw + cos * hh }
+	];
+}
+
+export function rectDiagonals(rect: RectParams): LineParams[] {
+	const corners = rectCorners(rect);
+	return [
+		{ x1: corners[0].x, y1: corners[0].y, x2: corners[2].x, y2: corners[2].y },
+		{ x1: corners[1].x, y1: corners[1].y, x2: corners[3].x, y2: corners[3].y },
+	];
+}
+
+export function quadEdges(q: QuadParams): LineParams[] {
+	const c = q.corners;
+	return [
+		{ x1: c[0].x, y1: c[0].y, x2: c[1].x, y2: c[1].y },
+		{ x1: c[1].x, y1: c[1].y, x2: c[2].x, y2: c[2].y },
+		{ x1: c[2].x, y1: c[2].y, x2: c[3].x, y2: c[3].y },
+		{ x1: c[3].x, y1: c[3].y, x2: c[0].x, y2: c[0].y },
+	];
+}
+
+export function quadDiagonals(q: QuadParams): LineParams[] {
+	const c = q.corners;
+	return [
+		{ x1: c[0].x, y1: c[0].y, x2: c[2].x, y2: c[2].y },
+		{ x1: c[1].x, y1: c[1].y, x2: c[3].x, y2: c[3].y },
 	];
 }
 

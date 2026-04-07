@@ -1,68 +1,96 @@
-import type { ExerciseConfig, ExerciseMode, LineParams, RectParams, ReferenceShape } from './types';
+import type { ExerciseConfig, ExerciseMode, LineParams, QuadParams, ReferenceShape } from './types';
 import type { StrokePoint, Stroke } from '$lib/input/stroke';
 import type { StrokeScore } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
-import { rectEdges, rectCorners } from '$lib/scoring/geometry';
+import { quadEdges, quadDiagonals } from '$lib/scoring/geometry';
 import { placeNonOverlapping } from './placement';
 import { defineExercise, buildMetricScore, getStrokePoints, strokeChord, strokeArcLen, angleDiff, type CoordTransform } from './plugin';
 import { registerExercise } from './registry';
 import { GUIDE_COLOR, HINT_COLOR, drawDot, scoreLineAccuracy } from './utils';
 
-function scoreFreeRect(strokes: Stroke[]): number {
-	if (strokes.length < 4) return 0;
-	const edges = strokes.slice(0, 4).map((s) => {
-		const pts = s.smoothedPoints.length > 0 ? s.smoothedPoints : s.rawPoints;
-		const start = pts[0];
-		const end = pts[pts.length - 1];
-		return { dx: end.x - start.x, dy: end.y - start.y };
-	});
+const TOTAL_LINES = 6; // 4 edges + 2 diagonals
 
-	let perpTotal = 0;
-	for (let i = 0; i < 4; i++) {
-		const a = edges[i];
-		const b = edges[(i + 1) % 4];
-		const magA = Math.sqrt(a.dx ** 2 + a.dy ** 2);
-		const magB = Math.sqrt(b.dx ** 2 + b.dy ** 2);
-		if (magA > 0 && magB > 0) perpTotal += 1 - Math.abs((a.dx * b.dx + a.dy * b.dy) / (magA * magB));
-	}
-	const perpendicularity = Math.max(0, Math.min(100, (perpTotal / 4) * 100));
-
-	let paraTotal = 0;
-	for (let i = 0; i < 2; i++) {
-		const a = edges[i];
-		const b = edges[i + 2];
-		const magA = Math.sqrt(a.dx ** 2 + a.dy ** 2);
-		const magB = Math.sqrt(b.dx ** 2 + b.dy ** 2);
-		if (magA > 0 && magB > 0) paraTotal += Math.abs((a.dx * b.dx + a.dy * b.dy) / (magA * magB));
-	}
-	const parallelism = Math.max(0, Math.min(100, (paraTotal / 2) * 100));
-
-	let straightTotal = 0;
-	for (const s of strokes.slice(0, 4)) {
-		const pts = s.smoothedPoints.length > 0 ? s.smoothedPoints : s.rawPoints;
-		if (pts.length < 2) continue;
-		const start = pts[0];
-		const end = pts[pts.length - 1];
-		let arcLen = 0;
-		for (let i = 1; i < pts.length; i++) {
-			arcLen += Math.sqrt((pts[i].x - pts[i - 1].x) ** 2 + (pts[i].y - pts[i - 1].y) ** 2);
-		}
-		const chord = Math.sqrt((end.x - start.x) ** 2 + (end.y - start.y) ** 2);
-		straightTotal += chord < 5 ? 0 : Math.max(0, Math.min(100, (chord / arcLen) * 100));
-	}
-
-	return straightTotal / 4 * 0.4 + perpendicularity * 0.3 + parallelism * 0.3;
+function allQuadLines(q: QuadParams): LineParams[] {
+	return [...quadEdges(q), ...quadDiagonals(q)];
 }
 
-/** Assign `n` strokes to `n` distinct edges (indices 0–3). `n` must be ≤ 4. */
-function injectiveEdgeAssignments(n: number): number[][] {
+function quadCenter(q: QuadParams): { x: number; y: number } {
+	const c = q.corners;
+	return {
+		x: (c[0].x + c[1].x + c[2].x + c[3].x) / 4,
+		y: (c[0].y + c[1].y + c[2].y + c[3].y) / 4,
+	};
+}
+
+/** Cross product of vectors (b-a) and (c-b). Positive = CCW turn. */
+function cross(a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }): number {
+	return (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+}
+
+function isConvex(corners: { x: number; y: number }[]): boolean {
+	let sign = 0;
+	for (let i = 0; i < 4; i++) {
+		const cp = cross(corners[i], corners[(i + 1) % 4], corners[(i + 2) % 4]);
+		if (cp === 0) continue;
+		if (sign === 0) sign = cp > 0 ? 1 : -1;
+		else if ((cp > 0 ? 1 : -1) !== sign) return false;
+	}
+	return sign !== 0;
+}
+
+/**
+ * Generate a convex quad by starting from a rectangle and jittering each
+ * corner independently. Retries with reduced jitter if the result isn't convex.
+ */
+function generateConvexQuad(
+	cx: number, cy: number, w: number, h: number, rotation: number
+): QuadParams {
+	const cos = Math.cos(rotation);
+	const sin = Math.sin(rotation);
+	const hw = w / 2;
+	const hh = h / 2;
+
+	const baseCorners = [
+		{ lx: -hw, ly: -hh },
+		{ lx: hw, ly: -hh },
+		{ lx: hw, ly: hh },
+		{ lx: -hw, ly: hh },
+	];
+
+	const minDim = Math.min(w, h);
+
+	for (let attempt = 0; attempt < 10; attempt++) {
+		const jitter = minDim * 0.25 * Math.pow(0.7, attempt);
+		const corners = baseCorners.map(({ lx, ly }) => {
+			const jx = lx + (Math.random() - 0.5) * 2 * jitter;
+			const jy = ly + (Math.random() - 0.5) * 2 * jitter;
+			return {
+				x: cx + cos * jx - sin * jy,
+				y: cy + sin * jx + cos * jy,
+			};
+		}) as [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }, { x: number; y: number }];
+
+		if (isConvex(corners)) return { corners };
+	}
+
+	// Fallback: no jitter (perfect rectangle)
+	const corners = baseCorners.map(({ lx, ly }) => ({
+		x: cx + cos * lx - sin * ly,
+		y: cy + sin * lx + cos * ly,
+	})) as [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }, { x: number; y: number }];
+
+	return { corners };
+}
+
+/** Assign `n` strokes to `n` distinct lines (indices 0–5). `n` must be ≤ 6. */
+function injectiveLineAssignments(n: number): number[][] {
 	const out: number[][] = [];
 	function dfs(cur: number[]) {
 		if (cur.length === n) {
 			out.push([...cur]);
 			return;
 		}
-		for (let e = 0; e < 4; e++) {
+		for (let e = 0; e < TOTAL_LINES; e++) {
 			if (cur.includes(e)) continue;
 			cur.push(e);
 			dfs(cur);
@@ -73,19 +101,19 @@ function injectiveEdgeAssignments(n: number): number[][] {
 	return out;
 }
 
-function scoreRectStrokeToEdge(points: StrokePoint[], edge: LineParams): StrokeScore {
+function scoreStrokeToLine(points: StrokePoint[], line: LineParams): StrokeScore {
 	return buildMetricScore(points, {
-		pathDeviation: scoreLineAccuracy(points, edge),
+		pathDeviation: scoreLineAccuracy(points, line),
 		smoothness: true,
 		speedConsistency: true,
-		endpointAccuracy: { start: { x: edge.x1, y: edge.y1 }, end: { x: edge.x2, y: edge.y2 } },
+		endpointAccuracy: { start: { x: line.x1, y: line.y1 }, end: { x: line.x2, y: line.y2 } },
 	});
 }
 
-function bestSingleEdgeScore(points: StrokePoint[], edges: LineParams[]): StrokeScore {
-	let best = scoreRectStrokeToEdge(points, edges[0]);
-	for (let i = 1; i < edges.length; i++) {
-		const sc = scoreRectStrokeToEdge(points, edges[i]);
+function bestSingleLineScore(points: StrokePoint[], lines: LineParams[]): StrokeScore {
+	let best = scoreStrokeToLine(points, lines[0]);
+	for (let i = 1; i < lines.length; i++) {
+		const sc = scoreStrokeToLine(points, lines[i]);
 		if (sc.composite > best.composite) best = sc;
 	}
 	return best;
@@ -94,11 +122,11 @@ function bestSingleEdgeScore(points: StrokePoint[], edges: LineParams[]): Stroke
 export const rectanglePlugin = defineExercise({
 	id: 'rectangle',
 	unit: 'basic-shapes',
-	label: 'Rectangles',
-	icon: '▭',
-	description: 'Draw rectangles with straight edges and square corners.',
+	label: 'Quads',
+	icon: '◇',
+	description: 'Draw quadrilaterals with their diagonals — 4 edges plus 2 crossing lines.',
 	availableModes: ['tracing', 'challenge', 'free'],
-	requiredStrokes: 4,
+	requiredStrokes: TOTAL_LINES,
 	defaultCount: 15,
 
 	generate(mode: ExerciseMode, canvasW: number, canvasH: number, toWorld?: CoordTransform): ExerciseConfig {
@@ -114,41 +142,52 @@ export const rectanglePlugin = defineExercise({
 		const center = toWorld
 			? toWorld(slot.x + slot.w / 2, slot.y + slot.h / 2)
 			: { x: slot.x + slot.w / 2, y: slot.y + slot.h / 2 };
-		const params: RectParams = { cx: center.x, cy: center.y, w, h, rotation };
+
+		const params = generateConvexQuad(center.x, center.y, w, h, rotation);
 
 		return {
 			unit: 'basic-shapes',
 			type: 'rectangle',
 			mode,
-			strokeCount: 4,
+			strokeCount: TOTAL_LINES,
 			references: [{ type: 'rectangle', params }],
 			availableModes: ['tracing', 'challenge', 'free']
 		};
 	},
 
 	renderGuide(ctx: CanvasRenderingContext2D, params: Record<string, unknown>, visibility: GuideVisibility) {
-		const p = params as unknown as RectParams;
+		const q = params as unknown as QuadParams;
 		if (visibility === 'hidden') return;
+
+		const c = q.corners;
 
 		if (visibility === 'full') {
 			ctx.save();
-			ctx.translate(p.cx, p.cy);
-			ctx.rotate(p.rotation);
 			ctx.strokeStyle = GUIDE_COLOR;
 			ctx.lineWidth = 2;
 			ctx.setLineDash([8, 6]);
-			ctx.strokeRect(-p.w / 2, -p.h / 2, p.w, p.h);
+
+			ctx.beginPath();
+			ctx.moveTo(c[0].x, c[0].y);
+			for (let i = 1; i < 4; i++) ctx.lineTo(c[i].x, c[i].y);
+			ctx.closePath();
+			ctx.stroke();
+
+			ctx.beginPath();
+			ctx.moveTo(c[0].x, c[0].y);
+			ctx.lineTo(c[2].x, c[2].y);
+			ctx.moveTo(c[1].x, c[1].y);
+			ctx.lineTo(c[3].x, c[3].y);
+			ctx.stroke();
+
 			ctx.setLineDash([]);
 			ctx.restore();
 		} else {
-			const corners = rectCorners(p);
-			for (const c of corners) drawDot(ctx, c.x, c.y, 5, HINT_COLOR);
+			for (const corner of c) drawDot(ctx, corner.x, corner.y, 5, HINT_COLOR);
 		}
 	},
 
 	scoreStroke(points: StrokePoint[], reference: ReferenceShape, _strokeIndex: number, mode: ExerciseMode): StrokeScore {
-		const p = reference.params as unknown as RectParams;
-
 		if (mode === 'free') {
 			return buildMetricScore(points, {
 				pathDeviation: null,
@@ -157,8 +196,9 @@ export const rectanglePlugin = defineExercise({
 			});
 		}
 
-		const edges = rectEdges(p);
-		return bestSingleEdgeScore(points, edges);
+		const q = reference.params as unknown as QuadParams;
+		const lines = allQuadLines(q);
+		return bestSingleLineScore(points, lines);
 	},
 
 	scoreStrokesForRound(strokes: Stroke[], reference: ReferenceShape, mode: ExerciseMode): StrokeScore[] {
@@ -173,12 +213,12 @@ export const rectanglePlugin = defineExercise({
 			});
 		}
 
-		const p = reference.params as unknown as RectParams;
-		const edges = rectEdges(p);
-		const n = Math.min(strokes.length, 4);
+		const q = reference.params as unknown as QuadParams;
+		const lines = allQuadLines(q);
+		const n = Math.min(strokes.length, TOTAL_LINES);
 		if (n === 0) return [];
 
-		const assignments = injectiveEdgeAssignments(n);
+		const assignments = injectiveLineAssignments(n);
 		let bestScores: StrokeScore[] | null = null;
 		let bestSum = -Infinity;
 		for (const assign of assignments) {
@@ -186,8 +226,8 @@ export const rectanglePlugin = defineExercise({
 			const scores: StrokeScore[] = [];
 			for (let i = 0; i < n; i++) {
 				const pts = getStrokePoints(strokes[i]);
-				const edge = edges[assign[i]];
-				const sc = scoreRectStrokeToEdge(pts, edge);
+				const line = lines[assign[i]];
+				const sc = scoreStrokeToLine(pts, line);
 				scores.push(sc);
 				sum += sc.composite;
 			}
@@ -198,12 +238,12 @@ export const rectanglePlugin = defineExercise({
 		}
 
 		const head = bestScores!;
-		if (strokes.length <= 4) return head;
+		if (strokes.length <= TOTAL_LINES) return head;
 
 		const tail: StrokeScore[] = [];
-		for (let i = 4; i < strokes.length; i++) {
+		for (let i = TOTAL_LINES; i < strokes.length; i++) {
 			const pts = getStrokePoints(strokes[i]);
-			tail.push(bestSingleEdgeScore(pts, edges));
+			tail.push(bestSingleLineScore(pts, lines));
 		}
 		return [...head, ...tail];
 	},
@@ -219,44 +259,38 @@ export const rectanglePlugin = defineExercise({
 			return arc > 0 && chord / arc > 0.65;
 		}
 
-		const p = reference.params as unknown as RectParams;
-		const edges = rectEdges(p);
+		const q = reference.params as unknown as QuadParams;
+		const lines = allQuadLines(q);
 		const s = pts[0];
 		const e = pts[pts.length - 1];
 		const strokeAngle = Math.atan2(e.y - s.y, e.x - s.x);
 
-		// Accept if stroke is compatible with ANY edge
-		for (const edge of edges) {
-			const el = Math.sqrt((edge.x2 - edge.x1) ** 2 + (edge.y2 - edge.y1) ** 2);
+		for (const line of lines) {
+			const el = Math.sqrt((line.x2 - line.x1) ** 2 + (line.y2 - line.y1) ** 2);
 			if (el < 1) continue;
 
-			// Start should be near either endpoint of the edge
-			const d1 = Math.sqrt((s.x - edge.x1) ** 2 + (s.y - edge.y1) ** 2);
-			const d2 = Math.sqrt((s.x - edge.x2) ** 2 + (s.y - edge.y2) ** 2);
+			const d1 = Math.sqrt((s.x - line.x1) ** 2 + (s.y - line.y1) ** 2);
+			const d2 = Math.sqrt((s.x - line.x2) ** 2 + (s.y - line.y2) ** 2);
 			const threshold = Math.max(el * 0.5, 40);
 			if (d1 > threshold && d2 > threshold) continue;
 
-			// Direction within 45° of edge (either way)
-			const edgeAngle = Math.atan2(edge.y2 - edge.y1, edge.x2 - edge.x1);
-			const ad = Math.min(angleDiff(strokeAngle, edgeAngle), angleDiff(strokeAngle, edgeAngle + Math.PI));
+			const lineAngle = Math.atan2(line.y2 - line.y1, line.x2 - line.x1);
+			const ad = Math.min(angleDiff(strokeAngle, lineAngle), angleDiff(strokeAngle, lineAngle + Math.PI));
 			if (ad > Math.PI / 4) continue;
 
-			// Length at least 25% of edge
 			if (chord >= el * 0.25) return true;
 		}
 		return false;
 	},
 
 	getCenter(params: Record<string, unknown>) {
-		const p = params as unknown as RectParams;
-		return { x: p.cx, y: p.cy };
+		return quadCenter(params as unknown as QuadParams);
 	},
 
 	getBounds(params: Record<string, unknown>) {
-		const p = params as unknown as RectParams;
-		const corners = rectCorners(p);
-		const xs = corners.map((c) => c.x);
-		const ys = corners.map((c) => c.y);
+		const q = params as unknown as QuadParams;
+		const xs = q.corners.map((c) => c.x);
+		const ys = q.corners.map((c) => c.y);
 		return {
 			minX: Math.min(...xs) - 10,
 			minY: Math.min(...ys) - 10,
@@ -265,8 +299,5 @@ export const rectanglePlugin = defineExercise({
 		};
 	}
 });
-
-// Expose scoreFreeRect for use by the exercise page's special free-mode handling
-export { scoreFreeRect };
 
 registerExercise(rectanglePlugin);

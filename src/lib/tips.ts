@@ -34,8 +34,9 @@ const EXERCISE_TIPS: Tip[] = [
 	// Curves
 	{ text: 'Curves should flow — think of them as a section of a larger circle, not a bent line.', exercises: ['curve'] },
 	{ text: 'Match the curvature at the start and end. The tangent direction matters as much as position.', exercises: ['curve'] },
-	// Rectangles
-	{ text: 'Draw each edge as a separate confident stroke. Don\'t try to round the corners.', exercises: ['rectangle'] },
+	// Quads
+	{ text: 'Draw all six strokes — four edges plus two diagonals. Each line should be one confident stroke.', exercises: ['rectangle'] },
+	{ text: 'The diagonals cross at the center — use that intersection to check your proportions.', exercises: ['rectangle'] },
 	{ text: 'Keep opposite edges parallel — focus on the angle of each stroke.', exercises: ['rectangle'] },
 	// Perspective
 	{ text: 'All receding edges should converge toward the vanishing point. Use it as your visual anchor.', exercises: ['perspective'] },

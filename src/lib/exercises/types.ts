@@ -32,6 +32,15 @@ export interface RectParams {
 	rotation: number;
 }
 
+export interface QuadParams {
+	corners: [
+		{ x: number; y: number },
+		{ x: number; y: number },
+		{ x: number; y: number },
+		{ x: number; y: number },
+	];
+}
+
 export interface PerspectiveBoxParams {
 	horizon: { y: number };
 	vanishingPoint: { x: number; y: number };
