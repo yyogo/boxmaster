@@ -73,8 +73,10 @@ export function randomCurve(canvasW: number, canvasH: number, diagonal: number, 
 	const perpX = -(y2 - y1) / (chordLen || 1);
 	const perpY = (x2 - x1) / (chordLen || 1);
 
-	const offset1 = chordLen * (0.2 + Math.random() * 0.4) * (Math.random() < 0.5 ? 1 : -1);
-	const offset2 = chordLen * (0.2 + Math.random() * 0.4) * (Math.random() < 0.5 ? 1 : -1);
+	// Same sign on both handles → C-shaped curve; opposite signs → S-curve (reserved for the s-curve exercise).
+	const bulgeSign = Math.random() < 0.5 ? 1 : -1;
+	const offset1 = chordLen * (0.2 + Math.random() * 0.4) * bulgeSign;
+	const offset2 = chordLen * (0.2 + Math.random() * 0.4) * bulgeSign;
 
 	const cp1x = x1 + (x2 - x1) * 0.33 + perpX * offset1;
 	const cp1y = y1 + (y2 - y1) * 0.33 + perpY * offset1;

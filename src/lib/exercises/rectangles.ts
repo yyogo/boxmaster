@@ -1,4 +1,4 @@
-import type { ExerciseConfig, ExerciseMode, RectParams, ReferenceShape } from './types';
+import type { ExerciseConfig, ExerciseMode, LineParams, RectParams, ReferenceShape } from './types';
 import type { StrokePoint, Stroke } from '$lib/input/stroke';
 import type { StrokeScore } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
@@ -52,6 +52,43 @@ function scoreFreeRect(strokes: Stroke[]): number {
 	}
 
 	return straightTotal / 4 * 0.4 + perpendicularity * 0.3 + parallelism * 0.3;
+}
+
+/** Assign `n` strokes to `n` distinct edges (indices 0–3). `n` must be ≤ 4. */
+function injectiveEdgeAssignments(n: number): number[][] {
+	const out: number[][] = [];
+	function dfs(cur: number[]) {
+		if (cur.length === n) {
+			out.push([...cur]);
+			return;
+		}
+		for (let e = 0; e < 4; e++) {
+			if (cur.includes(e)) continue;
+			cur.push(e);
+			dfs(cur);
+			cur.pop();
+		}
+	}
+	dfs([]);
+	return out;
+}
+
+function scoreRectStrokeToEdge(points: StrokePoint[], edge: LineParams): StrokeScore {
+	return buildMetricScore(points, {
+		pathDeviation: scoreLineAccuracy(points, edge),
+		smoothness: true,
+		speedConsistency: true,
+		endpointAccuracy: { start: { x: edge.x1, y: edge.y1 }, end: { x: edge.x2, y: edge.y2 } },
+	});
+}
+
+function bestSingleEdgeScore(points: StrokePoint[], edges: LineParams[]): StrokeScore {
+	let best = scoreRectStrokeToEdge(points, edges[0]);
+	for (let i = 1; i < edges.length; i++) {
+		const sc = scoreRectStrokeToEdge(points, edges[i]);
+		if (sc.composite > best.composite) best = sc;
+	}
+	return best;
 }
 
 export const rectanglePlugin = defineExercise({
@@ -109,7 +146,7 @@ export const rectanglePlugin = defineExercise({
 		}
 	},
 
-	scoreStroke(points: StrokePoint[], reference: ReferenceShape, strokeIndex: number, mode: ExerciseMode): StrokeScore {
+	scoreStroke(points: StrokePoint[], reference: ReferenceShape, _strokeIndex: number, mode: ExerciseMode): StrokeScore {
 		const p = reference.params as unknown as RectParams;
 
 		if (mode === 'free') {
@@ -121,13 +158,54 @@ export const rectanglePlugin = defineExercise({
 		}
 
 		const edges = rectEdges(p);
-		const edge = edges[strokeIndex % 4];
-		return buildMetricScore(points, {
-			pathDeviation: scoreLineAccuracy(points, edge),
-			smoothness: true,
-			speedConsistency: true,
-			endpointAccuracy: { start: { x: edge.x1, y: edge.y1 }, end: { x: edge.x2, y: edge.y2 } },
-		});
+		return bestSingleEdgeScore(points, edges);
+	},
+
+	scoreStrokesForRound(strokes: Stroke[], reference: ReferenceShape, mode: ExerciseMode): StrokeScore[] {
+		if (mode === 'free') {
+			return strokes.map((s) => {
+				const pts = getStrokePoints(s);
+				return buildMetricScore(pts, {
+					pathDeviation: null,
+					smoothness: true,
+					speedConsistency: true,
+				});
+			});
+		}
+
+		const p = reference.params as unknown as RectParams;
+		const edges = rectEdges(p);
+		const n = Math.min(strokes.length, 4);
+		if (n === 0) return [];
+
+		const assignments = injectiveEdgeAssignments(n);
+		let bestScores: StrokeScore[] | null = null;
+		let bestSum = -Infinity;
+		for (const assign of assignments) {
+			let sum = 0;
+			const scores: StrokeScore[] = [];
+			for (let i = 0; i < n; i++) {
+				const pts = getStrokePoints(strokes[i]);
+				const edge = edges[assign[i]];
+				const sc = scoreRectStrokeToEdge(pts, edge);
+				scores.push(sc);
+				sum += sc.composite;
+			}
+			if (sum > bestSum) {
+				bestSum = sum;
+				bestScores = scores;
+			}
+		}
+
+		const head = bestScores!;
+		if (strokes.length <= 4) return head;
+
+		const tail: StrokeScore[] = [];
+		for (let i = 4; i < strokes.length; i++) {
+			const pts = getStrokePoints(strokes[i]);
+			tail.push(bestSingleEdgeScore(pts, edges));
+		}
+		return [...head, ...tail];
 	},
 
 	isStrokeRelevant(stroke: Stroke, reference: ReferenceShape, canvasW: number, _canvasH: number, mode: ExerciseMode): boolean {

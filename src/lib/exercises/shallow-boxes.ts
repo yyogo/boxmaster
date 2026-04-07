@@ -249,6 +249,28 @@ function generateFallbackShallowBox(
 
 // --- Stroke matching ---
 
+function strokeFollowsExpectedEdge(
+	pts: { x: number; y: number }[],
+	expected: TaggedEdge[],
+): boolean {
+	if (pts.length < 2) return false;
+	const chord = strokeChord(pts);
+	const sampleStep = Math.max(1, Math.floor(pts.length / 10));
+	for (const exp of expected) {
+		const el = Math.sqrt((exp.x2 - exp.x1) ** 2 + (exp.y2 - exp.y1) ** 2);
+		if (el < 1) continue;
+		let totalD = 0;
+		let samples = 0;
+		for (let i = 0; i < pts.length; i += sampleStep) {
+			totalD += pointToSegmentDist(pts[i].x, pts[i].y, exp);
+			samples++;
+		}
+		const avgD = totalD / samples;
+		if (avgD < Math.max(el * 0.12, 12) && chord >= el * 0.22) return true;
+	}
+	return false;
+}
+
 function matchStrokeToEdge(
 	pts: { x: number; y: number }[],
 	edges: TaggedEdge[],
@@ -687,6 +709,8 @@ export const shallowBoxesPlugin = defineExercise({
 		if (strokeChord(pts) < canvasW * 0.02) return false;
 
 		const p = reference.params as unknown as ThreePointBoxParams;
+		if (strokeFollowsExpectedEdge(pts, p.expectedEdges)) return true;
+
 		const sampleStep = Math.max(1, Math.floor(pts.length / 10));
 
 		for (const edge of p.yEdges) {
