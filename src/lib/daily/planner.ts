@@ -3,6 +3,9 @@ import { getAllPlugins } from '$lib/exercises/registry';
 import { getAllResults } from '$lib/storage/db';
 import type { ExerciseResult } from '$lib/scoring/types';
 import type { ExercisePlugin } from '$lib/exercises/plugin';
+import type { ExerciseMode } from '$lib/exercises/types';
+import { suggestedMode } from '$lib/storage/progress';
+import { loadPrefs } from '$lib/storage/prefs';
 
 const UNIT_ORDER: Record<string, number> = {
 	'basic-shapes': 0,
@@ -18,7 +21,7 @@ interface ScoredPlugin {
 }
 
 export interface DailyPlan {
-	exercises: { type: string; shapesCount: number }[];
+	exercises: { type: string; shapesCount: number; mode: ExerciseMode }[];
 }
 
 function rankPlugins(plugins: ExercisePlugin[], allResults: ExerciseResult[]): ScoredPlugin[] {
@@ -54,16 +57,30 @@ function rankPlugins(plugins: ExercisePlugin[], allResults: ExerciseResult[]): S
 export async function buildDailyPlan(durationMinutes: number): Promise<DailyPlan> {
 	const plugins = getAllPlugins().filter((p) => !p.requiresPressure);
 	const allResults = await getAllResults();
+	const prefs = loadPrefs();
 	const scored = rankPlugins(plugins, allResults);
+
+	const byType = new Map<string, ExerciseResult[]>();
+	for (const r of allResults) {
+		const list = byType.get(r.exerciseType) ?? [];
+		list.push(r);
+		byType.set(r.exerciseType, list);
+	}
 
 	const roughExCount = Math.max(3, Math.round(durationMinutes / 2.5));
 	const selected = scored.slice(0, roughExCount);
 
 	return {
-		exercises: selected.map((s) => ({
-			type: s.plugin.id,
-			shapesCount: SHAPES_PER_EXERCISE,
-		})),
+		exercises: selected.map((s) => {
+			const currentMode = (prefs.modes[s.plugin.id] ?? 'tracing') as ExerciseMode;
+			const results = byType.get(s.plugin.id) ?? [];
+			const upgrade = suggestedMode(results, currentMode);
+			return {
+				type: s.plugin.id,
+				shapesCount: SHAPES_PER_EXERCISE,
+				mode: upgrade ?? currentMode,
+			};
+		}),
 	};
 }
 

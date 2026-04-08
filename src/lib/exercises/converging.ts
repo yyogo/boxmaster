@@ -291,7 +291,7 @@ export const convergingPlugin = defineExercise({
 	icon: '⟩',
 	description:
 		'Tracing: follow guides to a VP. Challenge: infer convergence from two witness lines, then draw from each dot toward the same hidden VP.',
-	availableModes: ['tracing', 'challenge'],
+	availableModes: ['tracing', 'challenge', 'memory'],
 	requiredStrokes: 8,
 	defaultCount: 8,
 	manualCompletionModes: ['challenge'],
@@ -315,7 +315,7 @@ export const convergingPlugin = defineExercise({
 			mode,
 			strokeCount,
 			references: [{ type: 'converging', params }],
-			availableModes: ['tracing', 'challenge'],
+			availableModes: ['tracing', 'challenge', 'memory'],
 		};
 	},
 

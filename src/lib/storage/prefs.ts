@@ -11,6 +11,8 @@ export interface UserPrefs {
 	penOnly: boolean;
 	/** Per-exercise-type mode, e.g. { "line": "tracing", "circle": "free" } */
 	modes: Record<string, ExerciseMode>;
+	/** Seconds to display the shape in memory mode before hiding (default 3). */
+	memorySeconds: number;
 }
 
 const DEFAULTS: UserPrefs = {
@@ -21,6 +23,7 @@ const DEFAULTS: UserPrefs = {
 	timerSeconds: 60,
 	penOnly: false,
 	modes: {},
+	memorySeconds: 3,
 };
 
 export function loadPrefs(): UserPrefs {

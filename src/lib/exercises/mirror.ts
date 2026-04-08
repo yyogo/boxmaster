@@ -219,7 +219,7 @@ export const mirrorPlugin = defineExercise({
 	label: 'Mirror Drawing',
 	icon: '⎸⎹',
 	description: 'Draw the mirror image of a given shape — trains spatial reasoning and symmetry.',
-	availableModes: ['tracing', 'challenge'],
+	availableModes: ['tracing', 'challenge', 'memory'],
 	requiredStrokes: 1,
 	defaultCount: 15,
 
@@ -231,7 +231,7 @@ export const mirrorPlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'mirror', params }],
-			availableModes: ['tracing', 'challenge'],
+			availableModes: ['tracing', 'challenge', 'memory'],
 		};
 	},
 

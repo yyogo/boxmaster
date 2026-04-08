@@ -37,6 +37,20 @@
 
 	let { results, datasets }: Props = $props();
 
+	const MODE_POINT_STYLE: Record<string, string> = {
+		tracing: 'circle',
+		challenge: 'rectRot',
+		memory: 'star',
+		free: 'triangle',
+	};
+
+	const MODE_LABELS: Record<string, string> = {
+		tracing: 'tracing',
+		challenge: 'challenge',
+		memory: 'memory',
+		free: 'free',
+	};
+
 	let canvasEl: HTMLCanvasElement | undefined = $state();
 	let chart: Chart | undefined;
 
@@ -51,6 +65,9 @@
 
 		const singleDataset = datasets.length === 1;
 		const ctx = canvas.getContext('2d')!;
+
+		const pointStyles = results.map((r) => MODE_POINT_STYLE[r.mode] ?? 'circle');
+		const baseRadius = results.length > 40 ? 1.5 : results.length > 20 ? 2.5 : 3;
 
 		const chartDatasets = datasets.map((ds) => {
 			const data = results.map((r) => {
@@ -77,8 +94,9 @@
 				pointBackgroundColor: ds.color,
 				pointBorderColor: '#16162a',
 				pointBorderWidth: 1.5,
-				pointRadius: results.length > 40 ? 1.5 : results.length > 20 ? 2.5 : 3,
+				pointRadius: baseRadius,
 				pointHoverRadius: 5,
+				pointStyle: pointStyles,
 				fill: singleDataset,
 				tension: 0.3,
 				spanGaps: false,
@@ -137,7 +155,8 @@
 								});
 								const label =
 									tryGetPlugin(r.exerciseType)?.label ?? r.exerciseType;
-								return `${label} — ${dateStr}`;
+								const modeStr = MODE_LABELS[r.mode] ?? r.mode;
+								return `${label} · ${modeStr} — ${dateStr}`;
 							},
 							label: (ctx) => {
 								const val = ctx.parsed.y;

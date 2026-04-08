@@ -1,3 +1,4 @@
+import type { ExerciseMode } from '$lib/exercises/types';
 import { buildDailyPlan, type DailyPlan } from './planner';
 
 export interface DailyExerciseResult {
@@ -37,6 +38,11 @@ class DailySession {
 	get currentShapesCount(): number {
 		if (!this.plan || this.currentIndex >= this.plan.exercises.length) return 10;
 		return this.plan.exercises[this.currentIndex].shapesCount;
+	}
+
+	get currentMode(): ExerciseMode | null {
+		if (!this.plan || this.currentIndex >= this.plan.exercises.length) return null;
+		return this.plan.exercises[this.currentIndex].mode;
 	}
 
 	get totalExercises(): number {

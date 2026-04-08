@@ -131,7 +131,7 @@ export const rectanglePlugin = defineExercise({
 	label: 'Quads',
 	icon: '◇',
 	description: 'Draw quadrilaterals with their diagonals — 4 edges plus 2 crossing lines.',
-	availableModes: ['tracing', 'challenge', 'free'],
+	availableModes: ['tracing', 'challenge', 'memory', 'free'],
 	requiredStrokes: TOTAL_LINES,
 	defaultCount: 15,
 
@@ -157,7 +157,7 @@ export const rectanglePlugin = defineExercise({
 			mode,
 			strokeCount: TOTAL_LINES,
 			references: [{ type: 'rectangle', params }],
-			availableModes: ['tracing', 'challenge', 'free'],
+			availableModes: ['tracing', 'challenge', 'memory', 'free'],
 		};
 	},
 

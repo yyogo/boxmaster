@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { saveResult, clearAllResults } from '$lib/storage/db';
 	import type { ExerciseResult, MetricKey, StrokeScore } from '$lib/scoring/types';
+	import type { ExerciseMode } from '$lib/exercises/types';
 
 	interface ExerciseDef {
 		id: string;
@@ -100,13 +101,20 @@
 			for (let i = 0; i < sessionExercises.length; i++) {
 				const { ex, startSkill, growthRate, plateau } = sessionExercises[i];
 				const progress = day / days;
-				// Logistic-ish growth curve with noise
 				const skill = Math.min(
 					plateau,
 					startSkill + (plateau - startSkill) * (1 - Math.exp(-growthRate * progress * 4)),
 				);
+
+				// Mode progression: tracing early, switch to challenge once skill > 70
+				let mode: ExerciseMode = 'tracing';
+				if (skill > 70 && progress > 0.4) mode = 'challenge';
+				if (skill > 85 && progress > 0.7) mode = 'free';
+
+				// Scores are lower in harder modes
+				const modeScorePenalty = mode === 'challenge' ? 12 : mode === 'free' ? 22 : 0;
 				const sessionNoise = rand(5, 15);
-				const baseScore = clamp(skill + rand(-sessionNoise / 2, sessionNoise / 2));
+				const baseScore = clamp(skill - modeScorePenalty + rand(-sessionNoise / 2, sessionNoise / 2));
 
 				const scores: StrokeScore[] = [];
 				for (let s = 0; s < ex.strokeCount; s++) {
@@ -130,7 +138,7 @@
 					timestamp,
 					unit: ex.unit,
 					exerciseType: ex.id,
-					mode: 'practice',
+					mode,
 					strokeCount: ex.strokeCount,
 					scores,
 					aggregateScore: baseScore,

@@ -5,10 +5,15 @@
 	import ExercisePicker from '$lib/components/ExercisePicker.svelte';
 	import { dailySession } from '$lib/daily/session.svelte';
 	import { getActiveStreak } from '$lib/daily/streak';
+	import { getAllResults } from '$lib/storage/db';
+	import { suggestedMode } from '$lib/storage/progress';
+	import { loadPrefs } from '$lib/storage/prefs';
+	import type { ExerciseMode } from '$lib/exercises/types';
 
 	let streak = $state(0);
 	let dailyMinutes = $state(15);
 	let starting = $state(false);
+	let upgradeMap: Map<string, ExerciseMode> = $state(new Map());
 
 	const DURATION_OPTIONS = [5, 10, 15, 20, 30];
 
@@ -24,8 +29,27 @@
 		if (first) goto(`${base}/exercise/${first}`);
 	}
 
+	async function computeUpgrades() {
+		const all = await getAllResults();
+		const prefs = loadPrefs();
+		const byType = new Map<string, typeof all>();
+		for (const r of all) {
+			const list = byType.get(r.exerciseType) ?? [];
+			list.push(r);
+			byType.set(r.exerciseType, list);
+		}
+		const map = new Map<string, ExerciseMode>();
+		for (const [type, results] of byType) {
+			const currentMode = prefs.modes[type] ?? 'tracing';
+			const suggested = suggestedMode(results, currentMode as ExerciseMode);
+			if (suggested) map.set(type, suggested);
+		}
+		upgradeMap = map;
+	}
+
 	onMount(() => {
 		streak = getActiveStreak();
+		computeUpgrades();
 	});
 </script>
 
@@ -72,7 +96,7 @@
 		</div>
 	</section>
 
-	<ExercisePicker onSelect={handleSelect} />
+	<ExercisePicker onSelect={handleSelect} upgrades={upgradeMap} />
 </div>
 
 <style>

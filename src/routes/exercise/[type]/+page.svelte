@@ -19,6 +19,7 @@
 	import { saveResult, getResultsByType } from '$lib/storage/db';
 	import { computeConsistency } from '$lib/scoring/consistency';
 	import { loadPrefs, updatePrefs } from '$lib/storage/prefs';
+	import { suggestedMode } from '$lib/storage/progress';
 	import { pickTip } from '$lib/tips';
 	import { dailySession } from '$lib/daily/session.svelte';
 	import { getFeedback, type FeedbackMessage } from '$lib/daily/feedback';
@@ -38,8 +39,10 @@
 
 	const savedPrefs = loadPrefs();
 
-	type Phase = 'drawing' | 'reviewing' | 'checked' | 'fading' | 'complete';
+	type Phase = 'drawing' | 'memorizing' | 'reviewing' | 'checked' | 'fading' | 'complete';
 	let phase: Phase = $state('drawing');
+	let memoryCountdown = $state(0);
+	let memoryTimerId: ReturnType<typeof setInterval> | null = null;
 	let roundIndex = $state(0);
 	let totalShapes = $state(savedPrefs.totalShapes);
 	let exerciseConfig: ExerciseConfig | null = $state(null);
@@ -72,6 +75,7 @@
 	let timerInterval: ReturnType<typeof setInterval> | null = null;
 
 	let attemptsPerShape = $state(savedPrefs.attemptsPerShape);
+	let memorySeconds_setting = $state(savedPrefs.memorySeconds);
 	let currentAttempt = $state(0);
 	let attemptStrokes: Stroke[] = $state([]);
 	let attemptScores: { strokeScores: StrokeScore[]; shapeScore: number; strokes: Stroke[] }[] = $state([]);
@@ -102,13 +106,14 @@
 	const FEEDBACK_DISPLAY_MS = 1200;
 
 	let nextExercise: { type: string; label: string } | null = $state(null);
+	let modeNudge: string | null = $state(null);
 
 	$effect(() => {
 		exerciseType; // track only this
 		untrack(() => {
 			if (!plugin) return;
 			if (dailySession.active) {
-				mode = 'tracing';
+				mode = dailySession.currentMode ?? 'tracing';
 				totalShapes = dailySession.currentShapesCount;
 			} else {
 				const savedMode = loadPrefs().modes[exerciseType];
@@ -134,7 +139,37 @@
 	});
 
 	function modeForVisibility(): GuideVisibility {
-		return mode === 'free' ? 'hidden' : mode === 'challenge' ? 'hints' : 'full';
+		if (mode === 'free' || mode === 'memory') return 'hidden';
+		if (mode === 'challenge') return 'hints';
+		return 'full';
+	}
+
+	function getMemorySeconds(): number {
+		return memorySeconds_setting;
+	}
+
+	function startMemorizingPhase() {
+		phase = 'memorizing';
+		guideVisibility = 'full';
+		memoryCountdown = getMemorySeconds();
+
+		if (memoryTimerId) clearInterval(memoryTimerId);
+		memoryTimerId = setInterval(() => {
+			memoryCountdown--;
+			if (memoryCountdown <= 0) {
+				if (memoryTimerId) clearInterval(memoryTimerId);
+				memoryTimerId = null;
+				phase = 'drawing';
+				guideVisibility = 'hidden';
+			}
+		}, 1000);
+	}
+
+	function stopMemoryTimer() {
+		if (memoryTimerId) {
+			clearInterval(memoryTimerId);
+			memoryTimerId = null;
+		}
 	}
 
 	function getCanvasSize(): { w: number; h: number } {
@@ -208,12 +243,19 @@
 		feedbackVisible = false;
 		if (feedbackTimeout) clearTimeout(feedbackTimeout);
 		nextExercise = null;
+		modeNudge = null;
 		hatchFillFromLow = null;
 		guideVisibility = modeForVisibility();
 		canvasRef?.resetView();
+		stopMemoryTimer();
 
 		stopTimer();
 		exerciseConfig = generateNextShape();
+
+		if (mode === 'memory') {
+			startMemorizingPhase();
+		}
+
 		showNextTip();
 	}
 
@@ -223,6 +265,7 @@
 	}
 
 	function handleStrokeStart() {
+		if (phase === 'memorizing') return;
 		isDrawing = true;
 		if (!hasStarted) {
 			hasStarted = true;
@@ -496,7 +539,12 @@
 		guideVisibility = modeForVisibility();
 
 		exerciseConfig = generateNextShape();
-		phase = 'drawing';
+
+		if (mode === 'memory') {
+			startMemorizingPhase();
+		} else {
+			phase = 'drawing';
+		}
 
 		if (roundIndex % TIP_SHOW_EVERY === 0) {
 			showNextTip();
@@ -521,6 +569,7 @@
 	async function finishExercise() {
 		phase = 'complete';
 		stopTimer();
+		stopMemoryTimer();
 		totalTime = Date.now() - exerciseStartTime;
 
 		if (rounds.length === 0) {
@@ -561,6 +610,12 @@
 
 			if (dailySession.active) {
 				dailySession.recordExercise(exerciseType, aggregateScore, plainRounds.length);
+			}
+
+			const updatedHistory = await getResultsByType(exerciseType);
+			const suggested = suggestedMode(updatedHistory, mode);
+			if (suggested) {
+				modeNudge = suggested;
 			}
 		} catch (err) {
 			console.error('Failed to save exercise result:', err);
@@ -733,6 +788,14 @@
 			onPenDetected={handlePenDetected}
 		/>
 
+		<!-- Memory countdown overlay -->
+		{#if phase === 'memorizing'}
+			<div class="memory-overlay">
+				<div class="memory-countdown">{memoryCountdown}</div>
+				<div class="memory-label">Memorize the shape</div>
+			</div>
+		{/if}
+
 		<!-- Progress bar -->
 		<div class="progress-bar">
 			<div class="progress-fill" style="width: {progressFraction * 100}%"></div>
@@ -792,6 +855,21 @@
 					<span class="timer-display" class:urgent={timeRemaining <= 10}>
 						{timeRemaining}s
 					</span>
+				{/if}
+
+				{#if mode === 'memory'}
+					<div class="count-control">
+						<input
+							type="range"
+							min="1"
+							max="10"
+							bind:value={memorySeconds_setting}
+							disabled={hasStarted}
+							class="count-slider"
+							oninput={() => updatePrefs({ memorySeconds: memorySeconds_setting })}
+						/>
+						<span class="count-label">{memorySeconds_setting}s</span>
+					</div>
 				{/if}
 
 				<span class="stroke-count">
@@ -886,6 +964,15 @@
 			</div>
 		{/if}
 	{:else}
+		{#if modeNudge}
+			<div class="mode-nudge">
+				<span>Consistently scoring well — ready to try <strong>{modeNudge}</strong> mode?</span>
+				<button class="nudge-btn" onclick={() => { mode = modeNudge as ExerciseMode; modeNudge = null; resetExercise(); }}>
+					Switch to {modeNudge}
+				</button>
+				<button class="nudge-dismiss" onclick={() => modeNudge = null}>✕</button>
+			</div>
+		{/if}
 		<ResultsGrid
 			{rounds}
 			{exerciseType}
@@ -1305,5 +1392,89 @@
 		.feedback-popup {
 			font-size: 1.8rem;
 		}
+	}
+
+	.mode-nudge {
+		position: absolute;
+		top: 16px;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 20;
+		background: rgba(76, 110, 245, 0.15);
+		border: 1px solid rgba(76, 110, 245, 0.4);
+		border-radius: 12px;
+		padding: 10px 16px;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		color: #ccccee;
+		font-size: 0.85rem;
+		white-space: nowrap;
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+	}
+
+	.nudge-btn {
+		padding: 5px 14px;
+		border-radius: 8px;
+		border: 1px solid rgba(76, 110, 245, 0.5);
+		background: rgba(76, 110, 245, 0.25);
+		color: #eeeeff;
+		font-size: 0.8rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.15s;
+		white-space: nowrap;
+	}
+
+	.nudge-btn:hover {
+		background: rgba(76, 110, 245, 0.4);
+	}
+
+	.nudge-dismiss {
+		background: transparent;
+		border: none;
+		color: #666688;
+		cursor: pointer;
+		font-size: 0.9rem;
+		padding: 2px 4px;
+	}
+
+	.nudge-dismiss:hover {
+		color: #aaaacc;
+	}
+
+	.memory-overlay {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		z-index: 15;
+		pointer-events: none;
+	}
+
+	.memory-countdown {
+		font-size: 5rem;
+		font-weight: 800;
+		color: rgba(76, 110, 245, 0.6);
+		font-variant-numeric: tabular-nums;
+		line-height: 1;
+		text-shadow: 0 0 40px rgba(76, 110, 245, 0.3);
+		animation: pulse-countdown 1s ease-in-out infinite;
+	}
+
+	.memory-label {
+		font-size: 0.9rem;
+		color: rgba(76, 110, 245, 0.5);
+		margin-top: 12px;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+	}
+
+	@keyframes pulse-countdown {
+		0%, 100% { transform: scale(1); opacity: 0.8; }
+		50% { transform: scale(1.08); opacity: 1; }
 	}
 </style>

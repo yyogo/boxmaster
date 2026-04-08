@@ -78,6 +78,16 @@
 		return tryGetPlugin(type)?.label ?? type;
 	}
 
+	function modeAbbrev(mode: string): string {
+		switch (mode) {
+			case 'tracing': return 'T';
+			case 'challenge': return 'C';
+			case 'memory': return 'M';
+			case 'free': return 'F';
+			default: return mode.charAt(0).toUpperCase();
+		}
+	}
+
 	function findAvailableMetrics(results: ExerciseResult[]): MetricKey[] {
 		const seen = new Set<MetricKey>();
 		for (const r of results) {
@@ -260,6 +270,15 @@
 								<span class="stat-label">avg</span>
 							</div>
 						</div>
+						{#if Object.keys(s.modeBreakdown).length > 0}
+							<div class="mode-breakdown">
+								{#each Object.entries(s.modeBreakdown).filter(([, v]) => v && v.count > 0) as [m, stats]}
+									<span class="mode-stat" class:latest={m === s.latestMode}>
+										{modeAbbrev(m)} {stats?.avg ?? 0}
+									</span>
+								{/each}
+							</div>
+						{/if}
 						{#if s.lastAttempt}
 							<div class="last-attempt">{formatDate(s.lastAttempt)}</div>
 						{/if}
@@ -485,6 +504,23 @@
 		font-size: 0.65rem;
 		color: #666688;
 		text-transform: uppercase;
+	}
+
+	.mode-breakdown {
+		display: flex;
+		gap: 8px;
+		flex-wrap: wrap;
+	}
+
+	.mode-stat {
+		font-size: 0.68rem;
+		color: #666688;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.mode-stat.latest {
+		color: #aaaacc;
+		font-weight: 600;
 	}
 
 	.last-attempt {

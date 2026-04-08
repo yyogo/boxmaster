@@ -1,12 +1,14 @@
 <script lang="ts">
 	import '$lib/exercises/init';
 	import { getPluginsByUnit } from '$lib/exercises/registry';
+	import type { ExerciseMode } from '$lib/exercises/types';
 
 	interface Props {
 		onSelect: (type: string) => void;
+		upgrades?: Map<string, ExerciseMode>;
 	}
 
-	let { onSelect }: Props = $props();
+	let { onSelect, upgrades = new Map() }: Props = $props();
 
 	const unitOrder = ['basic-shapes', 'strokes', 'perspective'];
 	const unitLabels: Record<string, string> = {
@@ -28,7 +30,12 @@
 					{#each plugins as ex}
 						<button class="exercise-card" onclick={() => onSelect(ex.id)}>
 							<div class="card-icon">{ex.icon}</div>
-							<h3 class="card-title">{ex.label}</h3>
+							<h3 class="card-title">
+								{ex.label}
+								{#if upgrades.has(ex.id)}
+									<span class="upgrade-badge" title="Ready for {upgrades.get(ex.id)}">↑</span>
+								{/if}
+							</h3>
 							<p class="card-desc">{ex.description}</p>
 							<div class="card-modes">
 								{#each ex.availableModes as m}
@@ -53,7 +60,12 @@
 				{#each plugins as ex}
 					<button class="exercise-card" onclick={() => onSelect(ex.id)}>
 						<div class="card-icon">{ex.icon}</div>
-						<h3 class="card-title">{ex.label}</h3>
+						<h3 class="card-title">
+							{ex.label}
+							{#if upgrades.has(ex.id)}
+								<span class="upgrade-badge" title="Ready for {upgrades.get(ex.id)}">↑</span>
+							{/if}
+						</h3>
 						<p class="card-desc">{ex.description}</p>
 						<div class="card-modes">
 							{#each ex.availableModes as m}
@@ -150,5 +162,20 @@
 		background: rgba(244, 114, 182, 0.15);
 		color: #f472b6;
 		border: 1px solid rgba(244, 114, 182, 0.25);
+	}
+
+	.upgrade-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 18px;
+		height: 18px;
+		border-radius: 50%;
+		background: rgba(74, 222, 128, 0.2);
+		color: #4ade80;
+		font-size: 0.7rem;
+		font-weight: 700;
+		margin-left: 6px;
+		vertical-align: middle;
 	}
 </style>

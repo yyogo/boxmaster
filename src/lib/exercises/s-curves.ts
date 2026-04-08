@@ -164,7 +164,7 @@ export const sCurvePlugin = defineExercise({
 	label: 'S-Curves',
 	icon: '∿',
 	description: 'Draw compound curves with an inflection point — essential for organic forms.',
-	availableModes: ['tracing', 'challenge'],
+	availableModes: ['tracing', 'challenge', 'memory'],
 	requiredStrokes: 1,
 	defaultCount: 20,
 
@@ -176,7 +176,7 @@ export const sCurvePlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 's-curve', params }],
-			availableModes: ['tracing', 'challenge'],
+			availableModes: ['tracing', 'challenge', 'memory'],
 		};
 	},
 

@@ -48,7 +48,7 @@ export const curvePlugin = defineExercise({
 	label: 'Curves',
 	icon: '〰',
 	description: 'Draw smooth bezier curves. Focus on fluid, continuous strokes that follow the path.',
-	availableModes: ['tracing'],
+	availableModes: ['tracing', 'memory'],
 	requiredStrokes: 1,
 	defaultCount: 20,
 
@@ -78,7 +78,7 @@ export const curvePlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'curve', params }],
-			availableModes: ['tracing'],
+			availableModes: ['tracing', 'memory'],
 		};
 	},
 

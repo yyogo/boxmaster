@@ -96,7 +96,7 @@ export const sphereContourPlugin = defineExercise({
 	icon: '◑',
 	description:
 		'Draw cross-contour lines around a sphere. Train your sense of 3D form with confident, wraparound strokes.',
-	availableModes: ['tracing', 'challenge'],
+	availableModes: ['tracing', 'challenge', 'memory'],
 	requiredStrokes: 1,
 	defaultCount: 15,
 
@@ -141,7 +141,7 @@ export const sphereContourPlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'sphere-contour', params }],
-			availableModes: ['tracing', 'challenge'],
+			availableModes: ['tracing', 'challenge', 'memory'],
 		};
 	},
 
