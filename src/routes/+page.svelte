@@ -43,11 +43,9 @@
 
 				<div class="duration-row">
 					{#each DURATION_OPTIONS as d}
-						<button
-							class="dur-chip"
-							class:active={dailyMinutes === d}
-							onclick={() => dailyMinutes = d}
-						>{d} min</button>
+						<button class="dur-chip" class:active={dailyMinutes === d} onclick={() => (dailyMinutes = d)}
+							>{d} min</button
+						>
 					{/each}
 				</div>
 

@@ -4,7 +4,15 @@ import type { StrokeScore } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
 import { quadEdges, quadDiagonals } from '$lib/scoring/geometry';
 import { placeNonOverlapping } from './placement';
-import { defineExercise, buildMetricScore, getStrokePoints, strokeChord, strokeArcLen, angleDiff, type CoordTransform } from './plugin';
+import {
+	defineExercise,
+	buildMetricScore,
+	getStrokePoints,
+	strokeChord,
+	strokeArcLen,
+	angleDiff,
+	type CoordTransform,
+} from './plugin';
 import { registerExercise } from './registry';
 import { GUIDE_COLOR, HINT_COLOR, drawDot, scoreLineAccuracy } from './utils';
 
@@ -42,9 +50,7 @@ function isConvex(corners: { x: number; y: number }[]): boolean {
  * Generate a convex quad by starting from a rectangle and jittering each
  * corner independently. Retries with reduced jitter if the result isn't convex.
  */
-function generateConvexQuad(
-	cx: number, cy: number, w: number, h: number, rotation: number
-): QuadParams {
+function generateConvexQuad(cx: number, cy: number, w: number, h: number, rotation: number): QuadParams {
 	const cos = Math.cos(rotation);
 	const sin = Math.sin(rotation);
 	const hw = w / 2;
@@ -131,7 +137,7 @@ export const rectanglePlugin = defineExercise({
 
 	generate(mode: ExerciseMode, canvasW: number, canvasH: number, toWorld?: CoordTransform): ExerciseConfig {
 		const minDim = Math.min(canvasW, canvasH);
-		const w = minDim * (0.10 + Math.random() * 0.18);
+		const w = minDim * (0.1 + Math.random() * 0.18);
 		const ratio = 0.45 + Math.random() * 0.45;
 		const h = w * ratio;
 		const rotation = Math.random() * Math.PI * 0.3;
@@ -151,7 +157,7 @@ export const rectanglePlugin = defineExercise({
 			mode,
 			strokeCount: TOTAL_LINES,
 			references: [{ type: 'rectangle', params }],
-			availableModes: ['tracing', 'challenge', 'free']
+			availableModes: ['tracing', 'challenge', 'free'],
 		};
 	},
 
@@ -248,7 +254,13 @@ export const rectanglePlugin = defineExercise({
 		return [...head, ...tail];
 	},
 
-	isStrokeRelevant(stroke: Stroke, reference: ReferenceShape, canvasW: number, _canvasH: number, mode: ExerciseMode): boolean {
+	isStrokeRelevant(
+		stroke: Stroke,
+		reference: ReferenceShape,
+		canvasW: number,
+		_canvasH: number,
+		mode: ExerciseMode,
+	): boolean {
 		const pts = getStrokePoints(stroke);
 		if (pts.length < 2) return false;
 		const chord = strokeChord(pts);
@@ -295,9 +307,9 @@ export const rectanglePlugin = defineExercise({
 			minX: Math.min(...xs) - 10,
 			minY: Math.min(...ys) - 10,
 			maxX: Math.max(...xs) + 10,
-			maxY: Math.max(...ys) + 10
+			maxY: Math.max(...ys) + 10,
 		};
-	}
+	},
 });
 
 registerExercise(rectanglePlugin);

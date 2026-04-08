@@ -128,38 +128,38 @@ in `init.ts`.
 
 ```typescript
 interface ExercisePlugin {
-  // Identity
-  id: string;                    // URL slug, e.g. "line"
-  unit: string;                  // grouping, e.g. "basic-shapes"
-  label: string;                 // display name
-  icon: string;                  // emoji
-  description: string;
-  availableModes: ExerciseMode[];
-  requiredStrokes: number;       // strokes needed per shape
-  defaultCount: number;          // shapes per session
-  requiresPressure?: boolean;    // marks exercises needing a pressure-sensitive pen
+	// Identity
+	id: string; // URL slug, e.g. "line"
+	unit: string; // grouping, e.g. "basic-shapes"
+	label: string; // display name
+	icon: string; // emoji
+	description: string;
+	availableModes: ExerciseMode[];
+	requiredStrokes: number; // strokes needed per shape
+	defaultCount: number; // shapes per session
+	requiresPressure?: boolean; // marks exercises needing a pressure-sensitive pen
 
-  // Generation
-  generate(mode, canvasW, canvasH, toWorld?): ExerciseConfig;
-  createSession?(canvasW, canvasH): unknown;
-  generateFromSession?(session, mode, canvasW, canvasH, toWorld?): ExerciseConfig;
+	// Generation
+	generate(mode, canvasW, canvasH, toWorld?): ExerciseConfig;
+	createSession?(canvasW, canvasH): unknown;
+	generateFromSession?(session, mode, canvasW, canvasH, toWorld?): ExerciseConfig;
 
-  // Rendering
-  renderGuide(ctx, params, visibility): void;
-  renderScaffold?(ctx, params): void;
-  renderStroke?(ctx, stroke, color, baseWidth): void;       // custom stroke rendering
-  renderScoredStroke?(ctx, stroke, score): void;             // custom scored highlight rendering
+	// Rendering
+	renderGuide(ctx, params, visibility): void;
+	renderScaffold?(ctx, params): void;
+	renderStroke?(ctx, stroke, color, baseWidth): void; // custom stroke rendering
+	renderScoredStroke?(ctx, stroke, score): void; // custom scored highlight rendering
 
-  // Scoring
-  scoreStroke(points, reference, strokeIndex, mode): StrokeScore;
-  computeShapeScore?(strokeScores): number;
+	// Scoring
+	scoreStroke(points, reference, strokeIndex, mode): StrokeScore;
+	computeShapeScore?(strokeScores): number;
 
-  // Geometry
-  getCenter(params): { x, y };
-  getBounds(params): { minX, minY, maxX, maxY };
+	// Geometry
+	getCenter(params): { x; y };
+	getBounds(params): { minX; minY; maxX; maxY };
 
-  // Stroke filtering
-  isStrokeRelevant?(stroke, reference, canvasW, canvasH, mode): boolean;
+	// Stroke filtering
+	isStrokeRelevant?(stroke, reference, canvasW, canvasH, mode): boolean;
 }
 ```
 
@@ -215,6 +215,7 @@ boxes in a session.
 ### Pressure input gating
 
 Plugins with `requiresPressure: true` trigger two UI behaviors:
+
 - **ExercisePicker**: a pink "pen required" badge on the exercise card
 - **Exercise page**: a floating warning banner when no pen has been detected yet
 
@@ -226,6 +227,7 @@ render loop (`renderer.ts`) and feeds pointer events into `pointer.ts`.
 ### Pointer state machine
 
 Classifies input into three gestures:
+
 - **Draw**: single pointer (mouse, pen, or touch when pen-only is off)
   → creates `Stroke` objects via `stroke.ts`
 - **Pan**: two-finger drag, or Shift+drag
@@ -249,11 +251,11 @@ always moves in the expected screen direction regardless of canvas angle.
 
 Each stroke is scored on three axes:
 
-| Metric | Source | Weight |
-|--------|--------|--------|
-| **Accuracy** | Plugin-specific: point-to-reference-shape distance | 50% |
-| **Flow** | `metrics.ts`: smoothness + speed consistency (CV-based) | 30% |
-| **Confidence** | `metrics.ts`: pressure control / taper (pen exercises, nullable) | 20% |
+| Metric         | Source                                                           | Weight |
+| -------------- | ---------------------------------------------------------------- | ------ |
+| **Accuracy**   | Plugin-specific: point-to-reference-shape distance               | 50%    |
+| **Flow**       | `metrics.ts`: smoothness + speed consistency (CV-based)          | 30%    |
+| **Confidence** | `metrics.ts`: pressure control / taper (pen exercises, nullable) | 20%    |
 
 ### Extensible metrics
 
@@ -277,6 +279,7 @@ helper.
 ### Issue detection
 
 Colored segment overlays on the stroke highlight problems:
+
 - `divergent` — stroke deviates from reference
 - `jittery` — excessive direction changes in a sliding window
 - `hesitation` — near-zero velocity for > 80 ms
@@ -293,6 +296,7 @@ Lower variance = higher consistency score.
 
 Each plugin defines `isStrokeRelevant` to filter stray marks. Passing
 criteria vary per shape but generally check:
+
 - Start point proximity to reference endpoints
 - Angular tolerance vs. reference direction
 - Minimum stroke length
@@ -300,21 +304,21 @@ criteria vary per shape but generally check:
 
 ## Exercise modes
 
-| Mode | Guides shown | Behavior |
-|------|-------------|----------|
-| **Guided** | Full reference shape | User traces the displayed shape |
-| **Challenge** | Hints only (endpoints, center, corners) | Dotted outlines, key points visible |
-| **Free** | None | User draws; scored against nearest matching shape |
+| Mode          | Guides shown                            | Behavior                                          |
+| ------------- | --------------------------------------- | ------------------------------------------------- |
+| **Guided**    | Full reference shape                    | User traces the displayed shape                   |
+| **Challenge** | Hints only (endpoints, center, corners) | Dotted outlines, key points visible               |
+| **Free**      | None                                    | User draws; scored against nearest matching shape |
 
 Not all exercises support all modes (e.g., perspective only supports guided
 and challenge).
 
 ## Persistence
 
-| Store | Engine | Contents |
-|-------|--------|----------|
+| Store            | Engine            | Contents                                                                 |
+| ---------------- | ----------------- | ------------------------------------------------------------------------ |
 | `ExerciseResult` | IndexedDB (`idb`) | Per-session: scores, mode, timestamps. Indexed by type, unit, timestamp. |
-| `UserPrefs` | `localStorage` | Theme, shape count, timer settings, per-exercise mode, pen-only. |
+| `UserPrefs`      | `localStorage`    | Theme, shape count, timer settings, per-exercise mode, pen-only.         |
 
 **Svelte 5 caveat**: reactive state must be snapshot via `$state.snapshot()`
 before passing to IndexedDB — the structured clone algorithm cannot serialize
@@ -325,6 +329,7 @@ Proxy objects.
 The 1-point perspective box plugin uses session-level state (shared horizon +
 vanishing point across all boxes in a session). Generation uses rejection
 sampling to ensure valid geometry:
+
 - Minimum edge length (4% of min canvas dimension)
 - Minimum angle at every vertex (30°, prevents degenerate depth lines)
 - Minimum horizontal distance from VP for all front-face corners
@@ -338,12 +343,12 @@ from the VP if random sampling exhausts its budget.
 The `strokes` unit contains four exercises focused on stroke quality and
 pressure control:
 
-| Plugin | ID | Pressure | Description |
-|--------|----|----------|-------------|
-| Curves | `curve` | No | Draw bezier curves; scored on geometric accuracy |
-| Constant Pressure | `constant-pressure` | Yes | Trace a line with even, constant pressure |
-| Taper | `taper` | Yes | Trace a line with smoothly increasing/decreasing pressure |
-| Pressure Control | `pressure-control` | Yes | Combined: curves or lines with constant or tapered pressure |
+| Plugin            | ID                  | Pressure | Description                                                 |
+| ----------------- | ------------------- | -------- | ----------------------------------------------------------- |
+| Curves            | `curve`             | No       | Draw bezier curves; scored on geometric accuracy            |
+| Constant Pressure | `constant-pressure` | Yes      | Trace a line with even, constant pressure                   |
+| Taper             | `taper`             | Yes      | Trace a line with smoothly increasing/decreasing pressure   |
+| Pressure Control  | `pressure-control`  | Yes      | Combined: curves or lines with constant or tapered pressure |
 
 ### Pressure-sensitive rendering
 

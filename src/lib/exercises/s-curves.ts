@@ -8,12 +8,18 @@ import { registerExercise } from './registry';
 import { GUIDE_COLOR, HINT_COLOR, drawDot } from './utils';
 
 export interface SCurveParams {
-	x1: number; y1: number;
-	cp1x: number; cp1y: number;
-	mx: number; my: number;
-	cpMx: number; cpMy: number;
-	cp2x: number; cp2y: number;
-	x2: number; y2: number;
+	x1: number;
+	y1: number;
+	cp1x: number;
+	cp1y: number;
+	mx: number;
+	my: number;
+	cpMx: number;
+	cpMy: number;
+	cp2x: number;
+	cp2y: number;
+	x2: number;
+	y2: number;
 }
 
 function sampleSCurve(p: SCurveParams, n = 60): { x: number; y: number }[] {
@@ -41,8 +47,10 @@ function pointToSCurveDist(px: number, py: number, samples: { x: number; y: numb
 	let minDist = Infinity;
 	for (let i = 0; i < samples.length - 1; i++) {
 		const d = pointToSegmentDist(px, py, {
-			x1: samples[i].x, y1: samples[i].y,
-			x2: samples[i + 1].x, y2: samples[i + 1].y,
+			x1: samples[i].x,
+			y1: samples[i].y,
+			x2: samples[i + 1].x,
+			y2: samples[i + 1].y,
 		});
 		if (d < minDist) minDist = d;
 	}
@@ -96,10 +104,10 @@ function generateSCurve(canvasW: number, canvasH: number, toWorld?: CoordTransfo
 	const cx = canvasW * (0.25 + Math.random() * 0.5);
 	const cy = canvasH * (0.25 + Math.random() * 0.5);
 
-	const x1 = cx - cos * len / 2;
-	const y1 = cy - sin * len / 2;
-	const x2 = cx + cos * len / 2;
-	const y2 = cy + sin * len / 2;
+	const x1 = cx - (cos * len) / 2;
+	const y1 = cy - (sin * len) / 2;
+	const x2 = cx + (cos * len) / 2;
+	const y2 = cy + (sin * len) / 2;
 	const mx = (x1 + x2) / 2;
 	const my = (y1 + y2) / 2;
 
@@ -123,7 +131,20 @@ function generateSCurve(canvasW: number, canvasH: number, toWorld?: CoordTransfo
 		const c1 = toWorld(raw.cp1x, raw.cp1y);
 		const cm = toWorld(raw.cpMx, raw.cpMy);
 		const c2 = toWorld(raw.cp2x, raw.cp2y);
-		return { x1: p1.x, y1: p1.y, cp1x: c1.x, cp1y: c1.y, mx: pm.x, my: pm.y, cpMx: cm.x, cpMy: cm.y, cp2x: c2.x, cp2y: c2.y, x2: p2.x, y2: p2.y };
+		return {
+			x1: p1.x,
+			y1: p1.y,
+			cp1x: c1.x,
+			cp1y: c1.y,
+			mx: pm.x,
+			my: pm.y,
+			cpMx: cm.x,
+			cpMy: cm.y,
+			cp2x: c2.x,
+			cp2y: c2.y,
+			x2: p2.x,
+			y2: p2.y,
+		};
 	}
 	return raw;
 }

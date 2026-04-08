@@ -7,7 +7,16 @@ import { drawPressureStroke } from '$lib/canvas/renderer';
 import { renderPressureHighlights } from '$lib/canvas/highlights';
 import { defineExercise, buildMetricScore, getStrokePoints, strokeArcLen, type CoordTransform } from './plugin';
 import { registerExercise } from './registry';
-import { GUIDE_COLOR, HINT_COLOR, drawDot, randomLine, randomCurve, drawTaperedRibbon, projectOntoLine, pressureShapeScore } from './utils';
+import {
+	GUIDE_COLOR,
+	HINT_COLOR,
+	drawDot,
+	randomLine,
+	randomCurve,
+	drawTaperedRibbon,
+	projectOntoLine,
+	pressureShapeScore,
+} from './utils';
 
 const MAX_RIBBON_WIDTH = 10;
 
@@ -18,14 +27,32 @@ function randomCurveParams(canvasW: number, canvasH: number, diagonal: number, m
 
 function getRefArcLen(p: PressureControlParams): number {
 	if (p.isCurve && p.cp1x != null && p.cp1y != null && p.cp2x != null && p.cp2y != null) {
-		return bezierArcLen({ x1: p.x1, y1: p.y1, x2: p.x2, y2: p.y2, cp1x: p.cp1x, cp1y: p.cp1y, cp2x: p.cp2x, cp2y: p.cp2y });
+		return bezierArcLen({
+			x1: p.x1,
+			y1: p.y1,
+			x2: p.x2,
+			y2: p.y2,
+			cp1x: p.cp1x,
+			cp1y: p.cp1y,
+			cp2x: p.cp2x,
+			cp2y: p.cp2y,
+		});
 	}
 	return Math.sqrt((p.x2 - p.x1) ** 2 + (p.y2 - p.y1) ** 2);
 }
 
 function pointToRefDist(px: number, py: number, p: PressureControlParams): number {
 	if (p.isCurve && p.cp1x != null && p.cp1y != null && p.cp2x != null && p.cp2y != null) {
-		return pointToBezierDist(px, py, { x1: p.x1, y1: p.y1, x2: p.x2, y2: p.y2, cp1x: p.cp1x, cp1y: p.cp1y, cp2x: p.cp2x, cp2y: p.cp2y });
+		return pointToBezierDist(px, py, {
+			x1: p.x1,
+			y1: p.y1,
+			x2: p.x2,
+			y2: p.y2,
+			cp1x: p.cp1x,
+			cp1y: p.cp1y,
+			cp2x: p.cp2x,
+			cp2y: p.cp2y,
+		});
 	}
 	return pointToSegmentDist(px, py, { x1: p.x1, y1: p.y1, x2: p.x2, y2: p.y2 });
 }
@@ -44,13 +71,16 @@ function projectOntoCurve(pt: StrokePoint, p: PressureControlParams): number {
 			{ x: p.x1, y: p.y1 },
 			{ x: p.cp1x, y: p.cp1y },
 			{ x: p.cp2x, y: p.cp2y },
-			{ x: p.x2, y: p.y2 }
+			{ x: p.x2, y: p.y2 },
 		);
 		let bestIdx = 0;
 		let bestDist = Infinity;
 		for (let i = 0; i < samples.length; i++) {
 			const d = (pt.x - samples[i].x) ** 2 + (pt.y - samples[i].y) ** 2;
-			if (d < bestDist) { bestDist = d; bestIdx = i; }
+			if (d < bestDist) {
+				bestDist = d;
+				bestIdx = i;
+			}
 		}
 		return bestIdx / (samples.length - 1);
 	}
@@ -111,7 +141,7 @@ function highlightDivergent(points: StrokePoint[], p: PressureControlParams): Sc
 function detectPressureIssues(points: StrokePoint[], p: PressureControlParams): ScoredSegment[] {
 	const segments: ScoredSegment[] = [];
 	const isConstant = Math.abs(p.startPressure - p.endPressure) < 0.05;
-	const issueType = isConstant ? 'pressure_inconsistent' as const : 'pressure_deviation' as const;
+	const issueType = isConstant ? ('pressure_inconsistent' as const) : ('pressure_deviation' as const);
 	const threshold = isConstant ? 0.08 : 0.15;
 
 	if (isConstant) {
@@ -167,7 +197,7 @@ function getPathPoints(p: PressureControlParams, n = 40): { x: number; y: number
 			{ x: p.cp1x, y: p.cp1y },
 			{ x: p.cp2x, y: p.cp2y },
 			{ x: p.x2, y: p.y2 },
-			n
+			n,
 		);
 	}
 	const pts: { x: number; y: number }[] = [];
@@ -183,7 +213,8 @@ export const pressureControlPlugin = defineExercise({
 	unit: 'strokes',
 	label: 'Pressure Control',
 	icon: '🖊',
-	description: 'Trace curves and lines with precise pressure: constant or tapered. Combines geometry and pressure mastery.',
+	description:
+		'Trace curves and lines with precise pressure: constant or tapered. Combines geometry and pressure mastery.',
 	availableModes: ['tracing'],
 	requiredStrokes: 1,
 	defaultCount: 15,
@@ -218,15 +249,19 @@ export const pressureControlPlugin = defineExercise({
 		if (toWorld) {
 			const p1 = toWorld(params.x1, params.y1);
 			const p2 = toWorld(params.x2, params.y2);
-			params.x1 = p1.x; params.y1 = p1.y;
-			params.x2 = p2.x; params.y2 = p2.y;
+			params.x1 = p1.x;
+			params.y1 = p1.y;
+			params.x2 = p2.x;
+			params.y2 = p2.y;
 			if (params.cp1x != null && params.cp1y != null) {
 				const c1 = toWorld(params.cp1x, params.cp1y);
-				params.cp1x = c1.x; params.cp1y = c1.y;
+				params.cp1x = c1.x;
+				params.cp1y = c1.y;
 			}
 			if (params.cp2x != null && params.cp2y != null) {
 				const c2 = toWorld(params.cp2x, params.cp2y);
-				params.cp2x = c2.x; params.cp2y = c2.y;
+				params.cp2x = c2.x;
+				params.cp2y = c2.y;
 			}
 		}
 
@@ -236,7 +271,7 @@ export const pressureControlPlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'pressure-control', params }],
-			availableModes: ['tracing']
+			availableModes: ['tracing'],
 		};
 	},
 
@@ -291,7 +326,13 @@ export const pressureControlPlugin = defineExercise({
 
 	computeShapeScore: pressureShapeScore,
 
-	isStrokeRelevant(stroke: Stroke, reference: ReferenceShape, _canvasW: number, _canvasH: number, _mode: ExerciseMode): boolean {
+	isStrokeRelevant(
+		stroke: Stroke,
+		reference: ReferenceShape,
+		_canvasW: number,
+		_canvasH: number,
+		_mode: ExerciseMode,
+	): boolean {
 		const pts = getStrokePoints(stroke);
 		if (pts.length < 2) return false;
 
@@ -314,7 +355,7 @@ export const pressureControlPlugin = defineExercise({
 		if (p.isCurve && p.cp1x != null && p.cp1y != null && p.cp2x != null && p.cp2y != null) {
 			return {
 				x: (p.x1 + p.x2 + p.cp1x + p.cp2x) / 4,
-				y: (p.y1 + p.y2 + p.cp1y + p.cp2y) / 4
+				y: (p.y1 + p.y2 + p.cp1y + p.cp2y) / 4,
 			};
 		}
 		return { x: (p.x1 + p.x2) / 2, y: (p.y1 + p.y2) / 2 };
@@ -333,9 +374,9 @@ export const pressureControlPlugin = defineExercise({
 			minX: Math.min(...xs) - margin,
 			minY: Math.min(...ys) - margin,
 			maxX: Math.max(...xs) + margin,
-			maxY: Math.max(...ys) + margin
+			maxY: Math.max(...ys) + margin,
 		};
-	}
+	},
 });
 
 registerExercise(pressureControlPlugin);

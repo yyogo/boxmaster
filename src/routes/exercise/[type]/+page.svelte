@@ -29,7 +29,11 @@
 	let exerciseType: string = $derived(page.params.type as string);
 	let plugin = $derived.by(() => {
 		if (!exerciseType) return null;
-		try { return getPlugin(exerciseType); } catch { return null; }
+		try {
+			return getPlugin(exerciseType);
+		} catch {
+			return null;
+		}
 	});
 
 	const savedPrefs = loadPrefs();
@@ -48,8 +52,7 @@
 	let lightTheme = $state(savedPrefs.lightTheme);
 	let mode: ExerciseMode = $state('tracing');
 	let isManualCompletion = $derived(
-		(plugin?.manualCompletion ?? false) ||
-			!!(plugin?.manualCompletionModes?.includes(mode))
+		(plugin?.manualCompletion ?? false) || !!plugin?.manualCompletionModes?.includes(mode),
 	);
 	/** Set after stroke 1: which local-Y side we fill from (basic hatching only). */
 	let hatchFillFromLow = $state<boolean | null>(null);
@@ -82,7 +85,7 @@
 			completed: currentStrokes.length,
 			total: exerciseConfig.strokeCount,
 			fillFromLowY: hatchFillFromLow,
-			lightTheme
+			lightTheme,
 		};
 	});
 
@@ -126,7 +129,7 @@
 			timerMode,
 			timerSeconds,
 			penOnly,
-			modes: exerciseType ? { [exerciseType]: mode } : {}
+			modes: exerciseType ? { [exerciseType]: mode } : {},
 		});
 	});
 
@@ -160,20 +163,24 @@
 			if (tipTimeout) clearTimeout(tipTimeout);
 			return;
 		}
-		const recent = rounds.slice(-4).flatMap(r => r.strokeScores);
+		const recent = rounds.slice(-4).flatMap((r) => r.strokeScores);
 		const { text, index } = pickTip(exerciseType, recent, tipShownIndices);
 		tipShownIndices.add(index);
 		tipText = text;
 		tipVisible = true;
 		if (tipTimeout) clearTimeout(tipTimeout);
-		tipTimeout = setTimeout(() => { tipVisible = false; }, TIP_DISPLAY_MS);
+		tipTimeout = setTimeout(() => {
+			tipVisible = false;
+		}, TIP_DISPLAY_MS);
 	}
 
 	function showFeedback(score: number) {
 		feedback = getFeedback(score);
 		feedbackVisible = true;
 		if (feedbackTimeout) clearTimeout(feedbackTimeout);
-		feedbackTimeout = setTimeout(() => { feedbackVisible = false; }, FEEDBACK_DISPLAY_MS);
+		feedbackTimeout = setTimeout(() => {
+			feedbackVisible = false;
+		}, FEEDBACK_DISPLAY_MS);
 	}
 
 	function resetExercise() {
@@ -275,7 +282,10 @@
 			if (exerciseType === 'hatching') {
 				hatchFillFromLow = computeHatchFillFromLow(stroke, exerciseConfig.references[0].params as HatchParams);
 			} else {
-				hatchFillFromLow = computeAdvancedFillFromLow(stroke, exerciseConfig.references[0].params as HatchAdvancedParams);
+				hatchFillFromLow = computeAdvancedFillFromLow(
+					stroke,
+					exerciseConfig.references[0].params as HatchAdvancedParams,
+				);
 			}
 		}
 
@@ -337,7 +347,7 @@
 			reference: exerciseConfig!.references[0],
 			strokes: [...currentStrokes],
 			strokeScores,
-			shapeScore
+			shapeScore,
 		};
 		rounds = [...rounds, round];
 		showFeedback(shapeScore);
@@ -384,12 +394,12 @@
 		let finalScore: number;
 		if (isSingleStroke && attemptsPerShape > 1) {
 			attemptScores = [...attemptScores, { strokeScores, shapeScore, strokes: [...currentStrokes] }];
-			const best = attemptScores.reduce((a, b) => b.shapeScore > a.shapeScore ? b : a);
+			const best = attemptScores.reduce((a, b) => (b.shapeScore > a.shapeScore ? b : a));
 			const round: RoundResult = {
 				reference: exerciseConfig!.references[0],
 				strokes: best.strokes,
 				strokeScores: best.strokeScores,
-				shapeScore: best.shapeScore
+				shapeScore: best.shapeScore,
 			};
 			rounds = [...rounds, round];
 			finalScore = best.shapeScore;
@@ -398,7 +408,7 @@
 				reference: exerciseConfig!.references[0],
 				strokes: [...currentStrokes],
 				strokeScores,
-				shapeScore
+				shapeScore,
 			};
 			rounds = [...rounds, round];
 			finalScore = shapeScore;
@@ -414,14 +424,17 @@
 	function fadeAttemptStroke() {
 		hatchFillFromLow = null;
 		const id = nextFadeId++;
-		fadingLayers = [...fadingLayers, {
-			id,
-			config: exerciseConfig!,
-			strokes: [...currentStrokes],
-			scores: currentScores,
-			alpha: 1,
-			guideVisibility: 'hidden'
-		}];
+		fadingLayers = [
+			...fadingLayers,
+			{
+				id,
+				config: exerciseConfig!,
+				strokes: [...currentStrokes],
+				scores: currentScores,
+				alpha: 1,
+				guideVisibility: 'hidden',
+			},
+		];
 		currentStrokes = [];
 		currentScores = null;
 		phase = 'drawing';
@@ -430,12 +443,12 @@
 		const fadeDuration = 2500;
 		function tick(now: number) {
 			const elapsed = now - fadeStart;
-			const alpha = Math.exp(-3 * elapsed / fadeDuration);
+			const alpha = Math.exp((-3 * elapsed) / fadeDuration);
 			if (alpha > 0.01) {
-				fadingLayers = fadingLayers.map(l => l.id === id ? { ...l, alpha } : l);
+				fadingLayers = fadingLayers.map((l) => (l.id === id ? { ...l, alpha } : l));
 				requestAnimationFrame(tick);
 			} else {
-				fadingLayers = fadingLayers.filter(l => l.id !== id);
+				fadingLayers = fadingLayers.filter((l) => l.id !== id);
 			}
 		}
 		requestAnimationFrame(tick);
@@ -452,23 +465,26 @@
 		}
 
 		const id = nextFadeId++;
-		fadingLayers = [...fadingLayers, {
-			id,
-			config: exerciseConfig!,
-			strokes: [...currentStrokes],
-			scores: currentScores,
-			alpha: 1,
-			guideVisibility: 'full',
-			hatchProgress:
-				isHatchType && mode !== 'free'
-					? {
-							completed: currentStrokes.length,
-							total: exerciseConfig!.strokeCount,
-							fillFromLowY: hatchFillFromLow,
-							lightTheme
-						}
-					: null
-		}];
+		fadingLayers = [
+			...fadingLayers,
+			{
+				id,
+				config: exerciseConfig!,
+				strokes: [...currentStrokes],
+				scores: currentScores,
+				alpha: 1,
+				guideVisibility: 'full',
+				hatchProgress:
+					isHatchType && mode !== 'free'
+						? {
+								completed: currentStrokes.length,
+								total: exerciseConfig!.strokeCount,
+								fillFromLowY: hatchFillFromLow,
+								lightTheme,
+							}
+						: null,
+			},
+		];
 
 		hatchFillFromLow = null;
 		roundIndex = nextIndex;
@@ -491,12 +507,12 @@
 
 		function tick(now: number) {
 			const elapsed = now - fadeStart;
-			const alpha = Math.exp(-3 * elapsed / fadeDuration);
+			const alpha = Math.exp((-3 * elapsed) / fadeDuration);
 			if (alpha > 0.01) {
-				fadingLayers = fadingLayers.map(l => l.id === id ? { ...l, alpha } : l);
+				fadingLayers = fadingLayers.map((l) => (l.id === id ? { ...l, alpha } : l));
 				requestAnimationFrame(tick);
 			} else {
-				fadingLayers = fadingLayers.filter(l => l.id !== id);
+				fadingLayers = fadingLayers.filter((l) => l.id !== id);
 			}
 		}
 		requestAnimationFrame(tick);
@@ -514,9 +530,7 @@
 
 		const plainRounds = $state.snapshot(rounds);
 
-		const aggregateScore = Math.round(
-			plainRounds.reduce((s, r) => s + r.shapeScore, 0) / plainRounds.length
-		);
+		const aggregateScore = Math.round(plainRounds.reduce((s, r) => s + r.shapeScore, 0) / plainRounds.length);
 
 		try {
 			const history = await getResultsByType(exerciseType);
@@ -526,7 +540,7 @@
 
 			const metricAverages: Partial<Record<MetricKey, number>> = {};
 			for (const key of METRIC_KEYS) {
-				const vals = allScores.map(s => s[key]).filter((v): v is number => v != null);
+				const vals = allScores.map((s) => s[key]).filter((v): v is number => v != null);
 				if (vals.length > 0) {
 					metricAverages[key] = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
 				}
@@ -542,7 +556,7 @@
 				scores: allScores,
 				aggregateScore,
 				metricAverages,
-				consistency
+				consistency,
 			});
 
 			if (dailySession.active) {
@@ -629,10 +643,18 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+		if (
+			e.target instanceof HTMLInputElement ||
+			e.target instanceof HTMLTextAreaElement ||
+			e.target instanceof HTMLSelectElement
+		)
+			return;
 		switch (e.key) {
 			case 'z':
-				if (e.ctrlKey || e.metaKey) { e.preventDefault(); handleUndo(); }
+				if (e.ctrlKey || e.metaKey) {
+					e.preventDefault();
+					handleUndo();
+				}
 				break;
 			case 'Enter':
 				if (phase === 'complete') handleRetry();
@@ -640,7 +662,7 @@
 			case 'r':
 				if (!e.ctrlKey && !e.metaKey) canvasRef?.resetView();
 				break;
-		case 's':
+			case 's':
 				if (!e.ctrlKey && !e.metaKey && phase === 'drawing') handleSkip();
 				break;
 			case 'd':
@@ -659,16 +681,18 @@
 	}
 
 	let sessionAggregateScore = $derived(
-		rounds.length > 0
-			? Math.round(rounds.reduce((s, r) => s + r.shapeScore, 0) / rounds.length)
-			: 0
+		rounds.length > 0 ? Math.round(rounds.reduce((s, r) => s + r.shapeScore, 0) / rounds.length) : 0,
 	);
 
 	let progressFraction = $derived(
-		totalShapes > 0 ? (roundIndex + (phase === 'drawing' || phase === 'reviewing' || phase === 'checked' ? 0 : 1)) / totalShapes : 0
+		totalShapes > 0
+			? (roundIndex + (phase === 'drawing' || phase === 'reviewing' || phase === 'checked' ? 0 : 1)) / totalShapes
+			: 0,
 	);
 
-	function preventGesture(e: Event) { e.preventDefault(); }
+	function preventGesture(e: Event) {
+		e.preventDefault();
+	}
 
 	onMount(() => {
 		resetExercise();
@@ -697,10 +721,9 @@
 			{guideVisibility}
 			strokes={currentStrokes}
 			scores={currentScores}
-			fadingLayers={fadingLayers}
+			{fadingLayers}
 			hatchProgress={hatchingFillProgress}
-			inputEnabled={phase === 'drawing' ||
-				(phase === 'reviewing' && plugin?.reviewAllowsDrawing !== false)}
+			inputEnabled={phase === 'drawing' || (phase === 'reviewing' && plugin?.reviewAllowsDrawing !== false)}
 			reviewing={phase === 'reviewing' || phase === 'checked'}
 			{penOnly}
 			bgColor={lightTheme ? '#ffffff' : undefined}
@@ -725,25 +748,15 @@
 
 			<div class="mode-pills">
 				{#each plugin?.availableModes ?? [] as m}
-					<button
-						class="pill-btn"
-						class:active={mode === m}
-						onclick={() => handleModeChange(m)}
-						disabled={hasStarted}
-					>{m}</button>
+					<button class="pill-btn" class:active={mode === m} onclick={() => handleModeChange(m)} disabled={hasStarted}
+						>{m}</button
+					>
 				{/each}
 			</div>
 
 			<div class="top-right">
 				<div class="count-control">
-					<input
-						type="range"
-						min="5"
-						max="40"
-						bind:value={totalShapes}
-						disabled={hasStarted}
-						class="count-slider"
-					/>
+					<input type="range" min="5" max="40" bind:value={totalShapes} disabled={hasStarted} class="count-slider" />
 					<span class="count-label">{totalShapes}</span>
 				</div>
 
@@ -764,20 +777,15 @@
 				{#if timerMode}
 					<button
 						class="pill-btn active"
-						onclick={(e) => { e.stopPropagation(); cycleTimerDuration(); }}
-						disabled={hasStarted}
-					>{timerSeconds}s</button>
-					<button
-						class="pill-btn"
-						onclick={toggleTimer}
-						disabled={hasStarted}
-					>✕</button>
+						onclick={(e) => {
+							e.stopPropagation();
+							cycleTimerDuration();
+						}}
+						disabled={hasStarted}>{timerSeconds}s</button
+					>
+					<button class="pill-btn" onclick={toggleTimer} disabled={hasStarted}>✕</button>
 				{:else}
-					<button
-						class="pill-btn"
-						onclick={toggleTimer}
-						disabled={hasStarted}
-					>Timer</button>
+					<button class="pill-btn" onclick={toggleTimer} disabled={hasStarted}>Timer</button>
 				{/if}
 
 				{#if timerMode && hasStarted}
@@ -787,10 +795,11 @@
 				{/if}
 
 				<span class="stroke-count">
-					{roundIndex + 1}/{totalShapes}{#if isSingleStroke && attemptsPerShape > 1}&nbsp;·&nbsp;{currentAttempt + 1}/{attemptsPerShape}{/if}
+					{roundIndex + 1}/{totalShapes}{#if isSingleStroke && attemptsPerShape > 1}&nbsp;·&nbsp;{currentAttempt +
+							1}/{attemptsPerShape}{/if}
 				</span>
 
-				<button class="pill-btn icon" onclick={() => lightTheme = !lightTheme} title="Toggle theme (T)">
+				<button class="pill-btn icon" onclick={() => (lightTheme = !lightTheme)} title="Toggle theme (T)">
 					{lightTheme ? '◑' : '◐'}
 				</button>
 			</div>
@@ -798,7 +807,11 @@
 
 		<!-- Bottom overlay -->
 		<div class="overlay-bottom" class:hidden={isDrawing}>
-			<button class="pill-btn" onclick={handleUndo} disabled={currentStrokes.length === 0 || (phase !== 'drawing' && phase !== 'reviewing')}>Undo</button>
+			<button
+				class="pill-btn"
+				onclick={handleUndo}
+				disabled={currentStrokes.length === 0 || (phase !== 'drawing' && phase !== 'reviewing')}>Undo</button
+			>
 			{#if isManualCompletion}
 				<button
 					class="pill-btn"
@@ -810,21 +823,33 @@
 							phase === 'drawing' &&
 							exerciseConfig &&
 							currentStrokes.length < strokesNeededForRound())}
-					title="Done (D)">Done</button>
+					title="Done (D)">Done</button
+				>
 				{#if phase === 'checked'}
 					<button class="pill-btn active" onclick={handleReviewNext} title="Next (N)">Next</button>
 				{/if}
 			{/if}
-			<button class="pill-btn" onclick={handleSkip} disabled={phase !== 'drawing' && phase !== 'reviewing' && phase !== 'checked'} title="Skip (S)">Skip</button>
-			<button class="pill-btn" onclick={handleFinish} disabled={(phase !== 'drawing' && phase !== 'reviewing' && phase !== 'checked') || rounds.length === 0} title="Finish (F)">Finish</button>
+			<button
+				class="pill-btn"
+				onclick={handleSkip}
+				disabled={phase !== 'drawing' && phase !== 'reviewing' && phase !== 'checked'}
+				title="Skip (S)">Skip</button
+			>
+			<button
+				class="pill-btn"
+				onclick={handleFinish}
+				disabled={(phase !== 'drawing' && phase !== 'reviewing' && phase !== 'checked') || rounds.length === 0}
+				title="Finish (F)">Finish</button
+			>
 			<button class="pill-btn" onclick={() => canvasRef?.resetView()} title="Reset view (R)">⟲</button>
 			{#if penDetected}
 				<button
 					class="pill-btn icon"
 					class:active={penOnly}
-					onclick={() => penOnly = !penOnly}
+					onclick={() => (penOnly = !penOnly)}
 					title={penOnly ? 'Pen only — tap to allow finger drawing' : 'Finger drawing enabled — tap for pen only'}
-				>✏️</button>
+					>✏️</button
+				>
 			{/if}
 		</div>
 
@@ -863,7 +888,7 @@
 	{:else}
 		<ResultsGrid
 			{rounds}
-			exerciseType={exerciseType}
+			{exerciseType}
 			aggregateScore={sessionAggregateScore}
 			{totalTime}
 			onRetry={handleRetry}
@@ -1122,8 +1147,13 @@
 	}
 
 	@keyframes pulse {
-		0%, 100% { opacity: 1; }
-		50% { opacity: 0.5; }
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.5;
+		}
 	}
 
 	/* --- Tip banner --- */
@@ -1176,8 +1206,14 @@
 	}
 
 	@keyframes scorePop {
-		from { transform: scale(1.3); opacity: 0; }
-		to { transform: scale(1); opacity: 1; }
+		from {
+			transform: scale(1.3);
+			opacity: 0;
+		}
+		to {
+			transform: scale(1);
+			opacity: 1;
+		}
 	}
 
 	/* --- Score feedback popup --- */
@@ -1192,7 +1228,9 @@
 		z-index: 20;
 		pointer-events: none;
 		opacity: 0;
-		transition: opacity 0.15s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+		transition:
+			opacity 0.15s ease,
+			transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 		text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
 		letter-spacing: -0.02em;
 	}
@@ -1202,12 +1240,28 @@
 		transform: translate(-50%, -50%) scale(1);
 	}
 
-	.feedback-popup.perfect { color: #fbbf24; text-shadow: 0 0 20px rgba(251, 191, 36, 0.5); }
-	.feedback-popup.great   { color: #a78bfa; text-shadow: 0 0 16px rgba(167, 139, 250, 0.4); }
-	.feedback-popup.nice    { color: #34d399; text-shadow: 0 0 14px rgba(52, 211, 153, 0.4); }
-	.feedback-popup.good    { color: #60a5fa; text-shadow: 0 0 12px rgba(96, 165, 250, 0.3); }
-	.feedback-popup.ok      { color: #94a3b8; }
-	.feedback-popup.retry   { color: #f87171; }
+	.feedback-popup.perfect {
+		color: #fbbf24;
+		text-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
+	}
+	.feedback-popup.great {
+		color: #a78bfa;
+		text-shadow: 0 0 16px rgba(167, 139, 250, 0.4);
+	}
+	.feedback-popup.nice {
+		color: #34d399;
+		text-shadow: 0 0 14px rgba(52, 211, 153, 0.4);
+	}
+	.feedback-popup.good {
+		color: #60a5fa;
+		text-shadow: 0 0 12px rgba(96, 165, 250, 0.3);
+	}
+	.feedback-popup.ok {
+		color: #94a3b8;
+	}
+	.feedback-popup.retry {
+		color: #f87171;
+	}
 
 	/* --- Daily session HUD --- */
 

@@ -11,7 +11,7 @@ import {
 	localToWorld,
 	chordInConvexPolygon,
 	projectRangeOnNormal,
-	assignStrokesToLinesMinCost
+	assignStrokesToLinesMinCost,
 } from './hatching-geometry';
 
 export type HatchAdvancedKind = 'ellipse' | 'polygon' | 'blob';
@@ -32,7 +32,7 @@ function scoreOneLine(points: StrokePoint[], line: LineParams): StrokeScore {
 		smoothness: true,
 		speedConsistency: true,
 		endpointAccuracy: { start: { x: line.x1, y: line.y1 }, end: { x: line.x2, y: line.y2 } },
-		extraSegments: extra
+		extraSegments: extra,
 	});
 }
 
@@ -42,7 +42,7 @@ function sampleEllipseOutline(
 	rx: number,
 	ry: number,
 	rot: number,
-	steps: number
+	steps: number,
 ): { x: number; y: number }[] {
 	const cos = Math.cos(rot);
 	const sin = Math.sin(rot);
@@ -61,7 +61,7 @@ function randomConvexBlob(
 	cy: number,
 	baseR: number,
 	n: number,
-	jitter: number
+	jitter: number,
 ): { x: number; y: number }[] {
 	const angles: number[] = [];
 	for (let i = 0; i < n; i++) {
@@ -78,7 +78,7 @@ function parallelChordsInPolygon(
 	poly: { x: number; y: number }[],
 	lineCount: number,
 	strokeAngle: number,
-	marginFrac = 0.05
+	marginFrac = 0.05,
 ): LineParams[] {
 	const d = { x: Math.cos(strokeAngle), y: Math.sin(strokeAngle) };
 	const n = { x: -d.y, y: d.x };
@@ -167,7 +167,9 @@ export function computeAdvancedFillFromLow(stroke: Stroke, p: HatchAdvancedParam
 	const nx = -dy / len;
 	const ny = dx / len;
 	let sc = 0;
-	for (const q of pts) { sc += nx * q.x + ny * q.y; }
+	for (const q of pts) {
+		sc += nx * q.x + ny * q.y;
+	}
 	sc /= pts.length;
 	const mid = nx * p.cx + ny * p.cy;
 	return sc < mid;
@@ -255,7 +257,7 @@ export const hatchingAdvancedPlugin = defineExercise({
 			mode,
 			strokeCount: params.lines.length,
 			references: [{ type: 'hatching-advanced', params }],
-			availableModes: ['tracing', 'challenge', 'free']
+			availableModes: ['tracing', 'challenge', 'free'],
 		};
 	},
 
@@ -310,7 +312,7 @@ export const hatchingAdvancedPlugin = defineExercise({
 			return buildMetricScore(points, {
 				pathDeviation: null,
 				smoothness: true,
-				speedConsistency: true
+				speedConsistency: true,
 			});
 		}
 		const line = hp.lines[strokeIndex];
@@ -357,16 +359,22 @@ export const hatchingAdvancedPlugin = defineExercise({
 
 	getBounds(params: Record<string, unknown>) {
 		const p = params as unknown as HatchAdvancedParams;
-		const allPts = [...p.lines.flatMap((l) => [{ x: l.x1, y: l.y1 }, { x: l.x2, y: l.y2 }]), ...p.outline];
+		const allPts = [
+			...p.lines.flatMap((l) => [
+				{ x: l.x1, y: l.y1 },
+				{ x: l.x2, y: l.y2 },
+			]),
+			...p.outline,
+		];
 		const xs = allPts.map((pt) => pt.x);
 		const ys = allPts.map((pt) => pt.y);
 		return {
 			minX: Math.min(...xs) - 10,
 			minY: Math.min(...ys) - 10,
 			maxX: Math.max(...xs) + 10,
-			maxY: Math.max(...ys) + 10
+			maxY: Math.max(...ys) + 10,
 		};
-	}
+	},
 });
 
 registerExercise(hatchingAdvancedPlugin);

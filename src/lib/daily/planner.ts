@@ -21,10 +21,7 @@ export interface DailyPlan {
 	exercises: { type: string; shapesCount: number }[];
 }
 
-function rankPlugins(
-	plugins: ExercisePlugin[],
-	allResults: ExerciseResult[],
-): ScoredPlugin[] {
+function rankPlugins(plugins: ExercisePlugin[], allResults: ExerciseResult[]): ScoredPlugin[] {
 	const byType = new Map<string, ExerciseResult[]>();
 	for (const r of allResults) {
 		const list = byType.get(r.exerciseType) ?? [];
@@ -40,18 +37,12 @@ function rankPlugins(
 		const normalizedPractice = practiceCount / maxPractice;
 
 		const recent = results.slice(-5);
-		const avgScore =
-			recent.length > 0
-				? recent.reduce((s, r) => s + r.aggregateScore, 0) / recent.length
-				: 0;
+		const avgScore = recent.length > 0 ? recent.reduce((s, r) => s + r.aggregateScore, 0) / recent.length : 0;
 		const normalizedScore = avgScore / 100;
 
 		const unitWeight = 1 - (UNIT_ORDER[plugin.unit] ?? 2) / 3;
 
-		const priority =
-			unitWeight * 0.25 +
-			(1 - normalizedPractice) * 0.40 +
-			(1 - normalizedScore) * 0.35;
+		const priority = unitWeight * 0.25 + (1 - normalizedPractice) * 0.4 + (1 - normalizedScore) * 0.35;
 
 		return { plugin, priority };
 	});

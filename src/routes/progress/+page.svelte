@@ -87,7 +87,7 @@
 			month: 'short',
 			day: 'numeric',
 			hour: '2-digit',
-			minute: '2-digit'
+			minute: '2-digit',
 		});
 	}
 
@@ -113,7 +113,7 @@
 	<div class="page-header">
 		<h1>Progress</h1>
 		{#if summaries.length > 0}
-			<button class="reset-btn" onclick={() => showResetModal = true}>Reset Progress</button>
+			<button class="reset-btn" onclick={() => (showResetModal = true)}>Reset Progress</button>
 		{/if}
 	</div>
 
@@ -127,13 +127,16 @@
 			<div class="detail-panel">
 				<div class="detail-header">
 					<h2>{exerciseLabel(selectedType)}</h2>
-					<button class="close-btn" onclick={() => { selectedType = null; selectedHistory = []; }}>✕</button>
+					<button
+						class="close-btn"
+						onclick={() => {
+							selectedType = null;
+							selectedHistory = [];
+						}}>✕</button
+					>
 				</div>
 
-				<ProgressChart
-					results={selectedHistory}
-					title="Overall Score"
-				/>
+				<ProgressChart results={selectedHistory} title="Overall Score" />
 
 				{#if metrics.length > 0}
 					<div class="metrics-grid">
@@ -146,12 +149,7 @@
 										<span class="metric-value" style="color: {METRIC_COLORS[mk]}">{avg}</span>
 									{/if}
 								</div>
-								<ProgressChart
-									results={selectedHistory}
-									metricKey={mk}
-									compact
-									color={METRIC_COLORS[mk]}
-								/>
+								<ProgressChart results={selectedHistory} metricKey={mk} compact color={METRIC_COLORS[mk]} />
 							</div>
 						{/each}
 					</div>
@@ -198,12 +196,20 @@
 {#if showResetModal}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class="modal-backdrop" onclick={() => showResetModal = false} onkeydown={(e) => { if (e.key === 'Escape') showResetModal = false; }}>
+	<div
+		class="modal-backdrop"
+		onclick={() => (showResetModal = false)}
+		onkeydown={(e) => {
+			if (e.key === 'Escape') showResetModal = false;
+		}}
+	>
 		<div class="modal" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()}>
 			<h2 class="modal-title">Reset All Progress?</h2>
-			<p class="modal-body">This will permanently delete all exercise results and your daily streak. This action cannot be undone.</p>
+			<p class="modal-body">
+				This will permanently delete all exercise results and your daily streak. This action cannot be undone.
+			</p>
 			<div class="modal-actions">
-				<button class="modal-btn cancel" onclick={() => showResetModal = false}>Cancel</button>
+				<button class="modal-btn cancel" onclick={() => (showResetModal = false)}>Cancel</button>
 				<button class="modal-btn danger" onclick={handleReset}>Delete Everything</button>
 			</div>
 		</div>

@@ -43,15 +43,18 @@ function drawCrosshair(ctx: CanvasRenderingContext2D, x: number, y: number, size
 function yOnLine(from: { x: number; y: number }, to: { x: number; y: number }, atX: number): number {
 	const dx = to.x - from.x;
 	if (Math.abs(dx) < 0.001) return from.y;
-	return from.y + (atX - from.x) / dx * (to.y - from.y);
+	return from.y + ((atX - from.x) / dx) * (to.y - from.y);
 }
 
 function generate2PtBox(
 	vpLeft: { x: number; y: number },
 	vpRight: { x: number; y: number },
 	horizonY: number,
-	cx: number, cy: number,
-	edgeH: number, widthL: number, widthR: number,
+	cx: number,
+	cy: number,
+	edgeH: number,
+	widthL: number,
+	widthR: number,
 ): TwoPointBoxParams {
 	const below = cy > horizonY;
 	const vDir = below ? -1 : 1;
@@ -86,14 +89,14 @@ function generate2PtBox(
 
 	const expectedEdges: LineParams[] = [
 		// Top receding
-		{ x1: fTop.x, y1: fTop.y, x2: lTop.x, y2: lTop.y },     // 0: front-top → left-top
-		{ x1: fTop.x, y1: fTop.y, x2: rTop.x, y2: rTop.y },     // 1: front-top → right-top
+		{ x1: fTop.x, y1: fTop.y, x2: lTop.x, y2: lTop.y }, // 0: front-top → left-top
+		{ x1: fTop.x, y1: fTop.y, x2: rTop.x, y2: rTop.y }, // 1: front-top → right-top
 		// Bottom receding
-		{ x1: fBot.x, y1: fBot.y, x2: lBot.x, y2: lBot.y },     // 2: front-bot → left-bot
-		{ x1: fBot.x, y1: fBot.y, x2: rBot.x, y2: rBot.y },     // 3: front-bot → right-bot
+		{ x1: fBot.x, y1: fBot.y, x2: lBot.x, y2: lBot.y }, // 2: front-bot → left-bot
+		{ x1: fBot.x, y1: fBot.y, x2: rBot.x, y2: rBot.y }, // 3: front-bot → right-bot
 		// Side verticals
-		{ x1: lTop.x, y1: lTop.y, x2: lBot.x, y2: lBot.y },     // 4: left vertical
-		{ x1: rTop.x, y1: rTop.y, x2: rBot.x, y2: rBot.y },     // 5: right vertical
+		{ x1: lTop.x, y1: lTop.y, x2: lBot.x, y2: lBot.y }, // 4: left vertical
+		{ x1: rTop.x, y1: rTop.y, x2: rBot.x, y2: rBot.y }, // 5: right vertical
 		// Back top edges
 		{ x1: lTop.x, y1: lTop.y, x2: backTop.x, y2: backTop.y }, // 6: left-top → back-top (→ vpRight)
 		{ x1: rTop.x, y1: rTop.y, x2: backTop.x, y2: backTop.y }, // 7: right-top → back-top (→ vpLeft)
@@ -106,7 +109,8 @@ function generate2PtBox(
 
 	return {
 		horizon: { y: horizonY },
-		vpLeft, vpRight,
+		vpLeft,
+		vpRight,
 		givenEdge,
 		expectedEdges,
 		verticalIndices: [4, 5, 10],
@@ -142,7 +146,7 @@ export const perspective2PtPlugin = defineExercise({
 		let params: TwoPointBoxParams | null = null;
 
 		for (let attempt = 0; attempt < 30; attempt++) {
-			const edgeH = minDim * (0.18 + Math.random() * 0.20);
+			const edgeH = minDim * (0.18 + Math.random() * 0.2);
 			const widthL = minDim * (0.15 + Math.random() * 0.18);
 			const widthR = minDim * (0.15 + Math.random() * 0.18);
 
@@ -161,7 +165,16 @@ export const perspective2PtPlugin = defineExercise({
 			const edgeH = minDim * 0.25;
 			const widthL = minDim * 0.18;
 			const widthR = minDim * 0.18;
-			params = generate2PtBox(s.vpLeft, s.vpRight, s.horizonY, canvasW / 2, s.horizonY + canvasH * 0.2, edgeH, widthL, widthR);
+			params = generate2PtBox(
+				s.vpLeft,
+				s.vpRight,
+				s.horizonY,
+				canvasW / 2,
+				s.horizonY + canvasH * 0.2,
+				edgeH,
+				widthL,
+				widthR,
+			);
 		}
 
 		return {
@@ -257,7 +270,10 @@ export const perspective2PtPlugin = defineExercise({
 			const e = p.expectedEdges[i];
 			const mid = { x: (e.x1 + e.x2) / 2, y: (e.y1 + e.y2) / 2 };
 			const d = Math.sqrt((strokeMid.x - mid.x) ** 2 + (strokeMid.y - mid.y) ** 2);
-			if (d < bestDist) { bestDist = d; bestIdx = i; }
+			if (d < bestDist) {
+				bestDist = d;
+				bestIdx = i;
+			}
 		}
 
 		const edge = p.expectedEdges[bestIdx];
@@ -282,7 +298,10 @@ export const perspective2PtPlugin = defineExercise({
 		const all = [
 			{ x: p.givenEdge.x1, y: p.givenEdge.y1 },
 			{ x: p.givenEdge.x2, y: p.givenEdge.y2 },
-			...p.expectedEdges.flatMap(e => [{ x: e.x1, y: e.y1 }, { x: e.x2, y: e.y2 }]),
+			...p.expectedEdges.flatMap((e) => [
+				{ x: e.x1, y: e.y1 },
+				{ x: e.x2, y: e.y2 },
+			]),
 		];
 		return {
 			x: all.reduce((s, pt) => s + pt.x, 0) / all.length,
@@ -295,10 +314,13 @@ export const perspective2PtPlugin = defineExercise({
 		const all = [
 			{ x: p.givenEdge.x1, y: p.givenEdge.y1 },
 			{ x: p.givenEdge.x2, y: p.givenEdge.y2 },
-			...p.expectedEdges.flatMap(e => [{ x: e.x1, y: e.y1 }, { x: e.x2, y: e.y2 }]),
+			...p.expectedEdges.flatMap((e) => [
+				{ x: e.x1, y: e.y1 },
+				{ x: e.x2, y: e.y2 },
+			]),
 		];
-		const xs = all.map(pt => pt.x);
-		const ys = all.map(pt => pt.y);
+		const xs = all.map((pt) => pt.x);
+		const ys = all.map((pt) => pt.y);
 		return {
 			minX: Math.min(...xs) - 10,
 			minY: Math.min(...ys) - 10,

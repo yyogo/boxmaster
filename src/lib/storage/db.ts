@@ -19,7 +19,7 @@ function getDb(): Promise<IDBPDatabase> {
 				}
 				// v2: metricAverages added to ExerciseResult — no schema change needed,
 				// old records without the field are still valid (Partial<Record>).
-			}
+			},
 		});
 	}
 	return dbPromise;

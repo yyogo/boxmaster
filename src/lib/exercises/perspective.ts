@@ -46,11 +46,11 @@ function generateBox(
 	cx: number,
 	cy: number,
 	edgeW: number,
-	edgeH: number
+	edgeH: number,
 ): PerspectiveBoxParams {
 	const below = cy > horizonY;
 	const corner = { x: cx, y: cy };
-	const depthFraction = 0.20 + Math.random() * 0.30;
+	const depthFraction = 0.2 + Math.random() * 0.3;
 	const hDir = cx < vp.x ? 1 : -1;
 
 	const horizontal: LineParams = { x1: corner.x, y1: corner.y, x2: corner.x + hDir * edgeW, y2: corner.y };
@@ -64,11 +64,17 @@ function generateBox(
 		x1: corner.x,
 		y1: corner.y,
 		x2: corner.x + (toVP.x / toVPLen) * depthLen,
-		y2: corner.y + (toVP.y / toVPLen) * depthLen
+		y2: corner.y + (toVP.y / toVPLen) * depthLen,
 	};
 
 	const expectedEdges = computeExpectedEdges(corner, horizontal, vertical, depth, vp);
-	return { horizon: { y: horizonY }, vanishingPoint: vp, givenCorner: corner, givenEdges: { horizontal, vertical, depth }, expectedEdges };
+	return {
+		horizon: { y: horizonY },
+		vanishingPoint: vp,
+		givenCorner: corner,
+		givenEdges: { horizontal, vertical, depth },
+		expectedEdges,
+	};
 }
 
 function computeExpectedEdges(
@@ -76,7 +82,7 @@ function computeExpectedEdges(
 	horizontal: LineParams,
 	vertical: LineParams,
 	depth: LineParams,
-	vp: { x: number; y: number }
+	vp: { x: number; y: number },
 ): LineParams[] {
 	const c0 = corner;
 	const c1 = { x: horizontal.x2, y: horizontal.y2 };
@@ -110,7 +116,7 @@ function computeExpectedEdges(
 		{ x1: b0.x, y1: b0.y, x2: b1.x, y2: b1.y },
 		{ x1: b0.x, y1: b0.y, x2: b2.x, y2: b2.y },
 		{ x1: b1.x, y1: b1.y, x2: b3.x, y2: b3.y },
-		{ x1: b2.x, y1: b2.y, x2: b3.x, y2: b3.y }
+		{ x1: b2.x, y1: b2.y, x2: b3.x, y2: b3.y },
 	];
 }
 
@@ -127,14 +133,20 @@ function scorePerspectiveStroke(points: StrokePoint[], boxes: PerspectiveBoxPara
 	}
 	if (allEdges.length === 0) return 0;
 
-	const strokeMid = { x: (points[0].x + points[points.length - 1].x) / 2, y: (points[0].y + points[points.length - 1].y) / 2 };
+	const strokeMid = {
+		x: (points[0].x + points[points.length - 1].x) / 2,
+		y: (points[0].y + points[points.length - 1].y) / 2,
+	};
 	let bestIdx = 0;
 	let bestDist = Infinity;
 	for (let i = 0; i < allEdges.length; i++) {
 		const e = allEdges[i].edge;
 		const mid = { x: (e.x1 + e.x2) / 2, y: (e.y1 + e.y2) / 2 };
 		const d = Math.sqrt((strokeMid.x - mid.x) ** 2 + (strokeMid.y - mid.y) ** 2);
-		if (d < bestDist) { bestDist = d; bestIdx = i; }
+		if (d < bestDist) {
+			bestDist = d;
+			bestIdx = i;
+		}
 	}
 
 	const info = allEdges[bestIdx];
@@ -165,7 +177,7 @@ function perspStrokeRelevant(
 	reference: ReferenceShape,
 	canvasW: number,
 	canvasH: number,
-	_mode: ExerciseMode
+	_mode: ExerciseMode,
 ): boolean {
 	const bp = reference.params as unknown as PerspectiveBoxParams;
 	const pts = stroke.smoothedPoints.length > 0 ? stroke.smoothedPoints : stroke.rawPoints;
@@ -180,7 +192,7 @@ function perspStrokeRelevant(
 		bp.givenCorner,
 		{ x: bp.givenEdges.horizontal.x2, y: bp.givenEdges.horizontal.y2 },
 		{ x: bp.givenEdges.vertical.x2, y: bp.givenEdges.vertical.y2 },
-		{ x: bp.givenEdges.depth.x2, y: bp.givenEdges.depth.y2 }
+		{ x: bp.givenEdges.depth.x2, y: bp.givenEdges.depth.y2 },
 	];
 	for (const e of bp.expectedEdges) allPts.push({ x: e.x1, y: e.y1 }, { x: e.x2, y: e.y2 });
 
@@ -294,7 +306,13 @@ export const perspectivePlugin = defineExercise({
 		return createPerspSession(canvasW, canvasH);
 	},
 
-	generateFromSession(session: unknown, mode: ExerciseMode, canvasW: number, canvasH: number, _toWorld?: CoordTransform): ExerciseConfig {
+	generateFromSession(
+		session: unknown,
+		mode: ExerciseMode,
+		canvasW: number,
+		canvasH: number,
+		_toWorld?: CoordTransform,
+	): ExerciseConfig {
 		const s = session as PerspectiveSession;
 		const minDim = Math.min(canvasW, canvasH);
 		const minEdgeLen = minDim * 0.04;
@@ -303,7 +321,7 @@ export const perspectivePlugin = defineExercise({
 
 		let params: PerspectiveBoxParams | null = null;
 		for (let attempt = 0; attempt < 40; attempt++) {
-			const edgeW = minDim * (0.25 + Math.random() * 0.20);
+			const edgeW = minDim * (0.25 + Math.random() * 0.2);
 			const edgeH = edgeW * (0.6 + Math.random() * 0.6);
 
 			const maxSz = Math.max(edgeW, edgeH) * 2;
@@ -322,7 +340,7 @@ export const perspectivePlugin = defineExercise({
 		}
 		if (!params) {
 			// Fallback: place corner well away from VP horizontally
-			const edgeW = minDim * 0.30;
+			const edgeW = minDim * 0.3;
 			const edgeH = edgeW * 0.8;
 			const cy = s.horizonY + canvasH * 0.25;
 			const hDir = s.vp.x > canvasW / 2 ? -1 : 1;
@@ -337,7 +355,7 @@ export const perspectivePlugin = defineExercise({
 			mode,
 			strokeCount: params.expectedEdges.length,
 			references: [{ type: '1-point-box', params }],
-			availableModes: ['tracing', 'challenge']
+			availableModes: ['tracing', 'challenge'],
 		};
 	},
 
@@ -407,11 +425,14 @@ export const perspectivePlugin = defineExercise({
 			{ x: bp.givenEdges.horizontal.x2, y: bp.givenEdges.horizontal.y2 },
 			{ x: bp.givenEdges.vertical.x2, y: bp.givenEdges.vertical.y2 },
 			{ x: bp.givenEdges.depth.x2, y: bp.givenEdges.depth.y2 },
-			...bp.expectedEdges.flatMap((e) => [{ x: e.x1, y: e.y1 }, { x: e.x2, y: e.y2 }])
+			...bp.expectedEdges.flatMap((e) => [
+				{ x: e.x1, y: e.y1 },
+				{ x: e.x2, y: e.y2 },
+			]),
 		];
 		return {
 			x: pts.reduce((s, p) => s + p.x, 0) / pts.length,
-			y: pts.reduce((s, p) => s + p.y, 0) / pts.length
+			y: pts.reduce((s, p) => s + p.y, 0) / pts.length,
 		};
 	},
 
@@ -422,7 +443,10 @@ export const perspectivePlugin = defineExercise({
 			{ x: bp.givenEdges.horizontal.x2, y: bp.givenEdges.horizontal.y2 },
 			{ x: bp.givenEdges.vertical.x2, y: bp.givenEdges.vertical.y2 },
 			{ x: bp.givenEdges.depth.x2, y: bp.givenEdges.depth.y2 },
-			...bp.expectedEdges.flatMap((e) => [{ x: e.x1, y: e.y1 }, { x: e.x2, y: e.y2 }])
+			...bp.expectedEdges.flatMap((e) => [
+				{ x: e.x1, y: e.y1 },
+				{ x: e.x2, y: e.y2 },
+			]),
 		];
 		const xs = pts.map((p) => p.x);
 		const ys = pts.map((p) => p.y);
@@ -430,9 +454,9 @@ export const perspectivePlugin = defineExercise({
 			minX: Math.min(...xs) - 10,
 			minY: Math.min(...ys) - 10,
 			maxX: Math.max(...xs) + 10,
-			maxY: Math.max(...ys) + 10
+			maxY: Math.max(...ys) + 10,
 		};
-	}
+	},
 });
 
 registerExercise(perspectivePlugin);

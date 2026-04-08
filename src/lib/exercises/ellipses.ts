@@ -65,7 +65,7 @@ export const ellipsePlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'ellipse', params }],
-			availableModes: ['tracing', 'challenge']
+			availableModes: ['tracing', 'challenge'],
 		};
 	},
 
@@ -120,7 +120,13 @@ export const ellipsePlugin = defineExercise({
 		});
 	},
 
-	isStrokeRelevant(stroke: Stroke, reference: ReferenceShape, _canvasW: number, _canvasH: number, _mode: ExerciseMode): boolean {
+	isStrokeRelevant(
+		stroke: Stroke,
+		reference: ReferenceShape,
+		_canvasW: number,
+		_canvasH: number,
+		_mode: ExerciseMode,
+	): boolean {
 		const pts = getStrokePoints(stroke);
 		if (pts.length < 3) return false;
 		const p = reference.params as unknown as EllipseParams;
@@ -145,7 +151,7 @@ export const ellipsePlugin = defineExercise({
 		const p = params as unknown as EllipseParams;
 		const maxR = Math.max(p.rx, p.ry);
 		return { minX: p.cx - maxR - 10, minY: p.cy - maxR - 10, maxX: p.cx + maxR + 10, maxY: p.cy + maxR + 10 };
-	}
+	},
 });
 
 registerExercise(ellipsePlugin);

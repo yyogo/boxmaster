@@ -4,9 +4,25 @@ import type { StrokeScore, ScoredSegment } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
 import { drawPressureStroke } from '$lib/canvas/renderer';
 import { renderPressureHighlights } from '$lib/canvas/highlights';
-import { defineExercise, buildMetricScore, getStrokePoints, strokeChord, angleDiff, type CoordTransform } from './plugin';
+import {
+	defineExercise,
+	buildMetricScore,
+	getStrokePoints,
+	strokeChord,
+	angleDiff,
+	type CoordTransform,
+} from './plugin';
 import { registerExercise } from './registry';
-import { GUIDE_COLOR, HINT_COLOR, drawDot, randomLine, scoreLineAccuracy, highlightLineDivergent, drawRibbon, pressureShapeScore } from './utils';
+import {
+	GUIDE_COLOR,
+	HINT_COLOR,
+	drawDot,
+	randomLine,
+	scoreLineAccuracy,
+	highlightLineDivergent,
+	drawRibbon,
+	pressureShapeScore,
+} from './utils';
 
 const RIBBON_WIDTH = 6;
 
@@ -71,8 +87,10 @@ export const constantPressurePlugin = defineExercise({
 		const p1 = toWorld ? toWorld(raw.x1, raw.y1) : { x: raw.x1, y: raw.y1 };
 		const p2 = toWorld ? toWorld(raw.x2, raw.y2) : { x: raw.x2, y: raw.y2 };
 		const params: PressureLineParams = {
-			x1: p1.x, y1: p1.y,
-			x2: p2.x, y2: p2.y
+			x1: p1.x,
+			y1: p1.y,
+			x2: p2.x,
+			y2: p2.y,
 		};
 		return {
 			unit: 'strokes',
@@ -80,7 +98,7 @@ export const constantPressurePlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'constant-pressure', params }],
-			availableModes: ['tracing']
+			availableModes: ['tracing'],
 		};
 	},
 
@@ -123,7 +141,13 @@ export const constantPressurePlugin = defineExercise({
 
 	computeShapeScore: pressureShapeScore,
 
-	isStrokeRelevant(stroke: Stroke, reference: ReferenceShape, canvasW: number, _canvasH: number, _mode: ExerciseMode): boolean {
+	isStrokeRelevant(
+		stroke: Stroke,
+		reference: ReferenceShape,
+		canvasW: number,
+		_canvasH: number,
+		_mode: ExerciseMode,
+	): boolean {
 		const pts = getStrokePoints(stroke);
 		if (pts.length < 2) return false;
 		const chord = strokeChord(pts);
@@ -159,9 +183,9 @@ export const constantPressurePlugin = defineExercise({
 			minX: Math.min(p.x1, p.x2) - margin,
 			minY: Math.min(p.y1, p.y2) - margin,
 			maxX: Math.max(p.x1, p.x2) + margin,
-			maxY: Math.max(p.y1, p.y2) + margin
+			maxY: Math.max(p.y1, p.y2) + margin,
 		};
-	}
+	},
 });
 
 registerExercise(constantPressurePlugin);

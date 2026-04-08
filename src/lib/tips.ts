@@ -23,67 +23,187 @@ const GENERAL_TIPS: Tip[] = [
 
 const EXERCISE_TIPS: Tip[] = [
 	// Lines
-	{ text: 'For straight lines, plant your pen at the start, look at the endpoint, and draw in one swift motion.', exercises: ['line'] },
-	{ text: 'Superimpose your line directly on top of the guide — the closer, the better your accuracy.', exercises: ['line'] },
-	{ text: 'Vary your arm motion: horizontal lines use shoulder rotation, vertical lines use elbow extension.', exercises: ['line'] },
+	{
+		text: 'For straight lines, plant your pen at the start, look at the endpoint, and draw in one swift motion.',
+		exercises: ['line'],
+	},
+	{
+		text: 'Superimpose your line directly on top of the guide — the closer, the better your accuracy.',
+		exercises: ['line'],
+	},
+	{
+		text: 'Vary your arm motion: horizontal lines use shoulder rotation, vertical lines use elbow extension.',
+		exercises: ['line'],
+	},
 	// Circles & ellipses
-	{ text: 'Draw circles in one continuous motion. Lift off where you started — don\'t overshoot the loop.', exercises: ['circle'] },
-	{ text: 'Start with a ghost circle in the air, then drop your pen in and trace the same path.', exercises: ['circle', 'ellipse'] },
+	{
+		text: "Draw circles in one continuous motion. Lift off where you started — don't overshoot the loop.",
+		exercises: ['circle'],
+	},
+	{
+		text: 'Start with a ghost circle in the air, then drop your pen in and trace the same path.',
+		exercises: ['circle', 'ellipse'],
+	},
 	{ text: 'For ellipses, tilt your hand to match the axis angle before you start drawing.', exercises: ['ellipse'] },
 	{ text: 'Focus on keeping the ellipse symmetrical — both halves should mirror each other.', exercises: ['ellipse'] },
 	// Curves
-	{ text: 'Curves should flow — think of them as a section of a larger circle, not a bent line.', exercises: ['curve'] },
-	{ text: 'Match the curvature at the start and end. The tangent direction matters as much as position.', exercises: ['curve'] },
+	{
+		text: 'Curves should flow — think of them as a section of a larger circle, not a bent line.',
+		exercises: ['curve'],
+	},
+	{
+		text: 'Match the curvature at the start and end. The tangent direction matters as much as position.',
+		exercises: ['curve'],
+	},
 	// Quads
-	{ text: 'Draw all six strokes — four edges plus two diagonals. Each line should be one confident stroke.', exercises: ['rectangle'] },
-	{ text: 'The diagonals cross at the center — use that intersection to check your proportions.', exercises: ['rectangle'] },
+	{
+		text: 'Draw all six strokes — four edges plus two diagonals. Each line should be one confident stroke.',
+		exercises: ['rectangle'],
+	},
+	{
+		text: 'The diagonals cross at the center — use that intersection to check your proportions.',
+		exercises: ['rectangle'],
+	},
 	{ text: 'Keep opposite edges parallel — focus on the angle of each stroke.', exercises: ['rectangle'] },
 	// Perspective
-	{ text: 'All receding edges should converge toward the vanishing point. Use it as your visual anchor.', exercises: ['perspective'] },
-	{ text: 'Draw the vertical edges truly vertical — they don\'t converge in one-point perspective.', exercises: ['perspective'] },
-	{ text: 'Ghost each receding line from the corner toward the vanishing point before committing.', exercises: ['perspective'] },
+	{
+		text: 'All receding edges should converge toward the vanishing point. Use it as your visual anchor.',
+		exercises: ['perspective'],
+	},
+	{
+		text: "Draw the vertical edges truly vertical — they don't converge in one-point perspective.",
+		exercises: ['perspective'],
+	},
+	{
+		text: 'Ghost each receding line from the corner toward the vanishing point before committing.',
+		exercises: ['perspective'],
+	},
 	// Pressure
-	{ text: 'Let the weight of the pen do the work — squeeze less, press less, let gravity help.', exercises: ['constant-pressure', 'taper', 'pressure-control'] },
-	{ text: 'For tapers, start heavy and lift gradually — or the reverse. Practice both directions.', exercises: ['taper'] },
-	{ text: 'Consistent pressure comes from a relaxed grip. If your hand is tight, your pressure will spike.', exercises: ['constant-pressure'] },
+	{
+		text: 'Let the weight of the pen do the work — squeeze less, press less, let gravity help.',
+		exercises: ['constant-pressure', 'taper', 'pressure-control'],
+	},
+	{
+		text: 'For tapers, start heavy and lift gradually — or the reverse. Practice both directions.',
+		exercises: ['taper'],
+	},
+	{
+		text: 'Consistent pressure comes from a relaxed grip. If your hand is tight, your pressure will spike.',
+		exercises: ['constant-pressure'],
+	},
 	// Hatching
-	{ text: 'Keep each hatch stroke the same length and angle — consistency matters more than speed.', exercises: ['hatching', 'hatching-advanced'] },
-	{ text: 'Space your hatching evenly. Imagine invisible guide rails between each line.', exercises: ['hatching', 'hatching-advanced'] },
-	{ text: 'On curved boundaries, let each chord stay parallel to the others — follow the silhouette, not the border stroke-for-stroke.', exercises: ['hatching-advanced'] },
+	{
+		text: 'Keep each hatch stroke the same length and angle — consistency matters more than speed.',
+		exercises: ['hatching', 'hatching-advanced'],
+	},
+	{
+		text: 'Space your hatching evenly. Imagine invisible guide rails between each line.',
+		exercises: ['hatching', 'hatching-advanced'],
+	},
+	{
+		text: 'On curved boundaries, let each chord stay parallel to the others — follow the silhouette, not the border stroke-for-stroke.',
+		exercises: ['hatching-advanced'],
+	},
 	// S-Curves
-	{ text: 'An S-curve has an inflection point — feel the direction change and flow through it smoothly.', exercises: ['s-curve'] },
-	{ text: 'Ghost the full S shape before committing. Your arm should know the path before the pen touches down.', exercises: ['s-curve'] },
+	{
+		text: 'An S-curve has an inflection point — feel the direction change and flow through it smoothly.',
+		exercises: ['s-curve'],
+	},
+	{
+		text: 'Ghost the full S shape before committing. Your arm should know the path before the pen touches down.',
+		exercises: ['s-curve'],
+	},
 	// Converging lines
 	{ text: 'Keep your eye on the vanishing point — every line should aim toward it.', exercises: ['converging'] },
 	{ text: 'Start each stroke at the edge and draw inward. The VP is your target.', exercises: ['converging'] },
 	// Draw-through
-	{ text: 'Visualize the hidden corner before you draw. Where would the back edges meet?', exercises: ['draw-through'] },
-	{ text: 'Use the visible edges as reference — hidden edges follow the same perspective rules.', exercises: ['draw-through'] },
+	{
+		text: 'Visualize the hidden corner before you draw. Where would the back edges meet?',
+		exercises: ['draw-through'],
+	},
+	{
+		text: 'Use the visible edges as reference — hidden edges follow the same perspective rules.',
+		exercises: ['draw-through'],
+	},
 	// Mirror
-	{ text: 'Focus on matching distances from the axis. Each point on your stroke should be the same distance away.', exercises: ['mirror'] },
-	{ text: 'Scan back and forth between the original and your mirror — check key points as you go.', exercises: ['mirror'] },
+	{
+		text: 'Focus on matching distances from the axis. Each point on your stroke should be the same distance away.',
+		exercises: ['mirror'],
+	},
+	{
+		text: 'Scan back and forth between the original and your mirror — check key points as you go.',
+		exercises: ['mirror'],
+	},
 	// 2-Point perspective
-	{ text: 'In 2-point perspective, only verticals stay vertical. All horizontal edges recede to a VP.', exercises: ['2-point-box'] },
-	{ text: 'Left-facing edges go to the left VP, right-facing edges go to the right VP. Never mix them.', exercises: ['2-point-box'] },
+	{
+		text: 'In 2-point perspective, only verticals stay vertical. All horizontal edges recede to a VP.',
+		exercises: ['2-point-box'],
+	},
+	{
+		text: 'Left-facing edges go to the left VP, right-facing edges go to the right VP. Never mix them.',
+		exercises: ['2-point-box'],
+	},
 	// Plane ellipses
-	{ text: 'The ellipse should touch the midpoint of each side of the rectangle — those are your tangent points.', exercises: ['plane-ellipse'] },
-	{ text: 'In perspective, circles become ellipses. The more the plane tilts away, the narrower the ellipse gets.', exercises: ['plane-ellipse'] },
-	{ text: 'Ghost the curve path before committing. Feel the oval shape with your hand first.', exercises: ['plane-ellipse'] },
+	{
+		text: 'The ellipse should touch the midpoint of each side of the rectangle — those are your tangent points.',
+		exercises: ['plane-ellipse'],
+	},
+	{
+		text: 'In perspective, circles become ellipses. The more the plane tilts away, the narrower the ellipse gets.',
+		exercises: ['plane-ellipse'],
+	},
+	{
+		text: 'Ghost the curve path before committing. Feel the oval shape with your hand first.',
+		exercises: ['plane-ellipse'],
+	},
 	// Shallow boxes
-	{ text: 'With subtle perspective, focus on making parallel edges converge to a single distant point.', exercises: ['shallow-boxes'] },
-	{ text: 'Extend your lines mentally to check if they would all meet at the same spot.', exercises: ['shallow-boxes'] },
-	{ text: 'The flatter the perspective, the more important consistency is over accuracy.', exercises: ['shallow-boxes'] },
+	{
+		text: 'With subtle perspective, focus on making parallel edges converge to a single distant point.',
+		exercises: ['shallow-boxes'],
+	},
+	{
+		text: 'Extend your lines mentally to check if they would all meet at the same spot.',
+		exercises: ['shallow-boxes'],
+	},
+	{
+		text: 'The flatter the perspective, the more important consistency is over accuracy.',
+		exercises: ['shallow-boxes'],
+	},
 ];
 
 const PERFORMANCE_TIPS: Tip[] = [
-	{ text: 'Your accuracy is dipping — try slowing down slightly and focusing on the guide path.', trigger: { score: 'pathDeviation', below: 55 } },
-	{ text: 'Great accuracy! Now try to match it at a faster pace to build muscle memory.', trigger: { score: 'pathDeviation', below: 101 } },
-	{ text: 'Your strokes are jerky — focus on a single fluid motion without corrections.', trigger: { score: 'smoothness', below: 55 } },
-	{ text: 'Your strokes are uneven — try to maintain a constant speed throughout each stroke.', trigger: { score: 'speedConsistency', below: 50 } },
-	{ text: 'Smooth strokes! Keep that even tempo — it\'s a sign of good arm control.', trigger: { score: 'speedConsistency', below: 101 } },
-	{ text: 'Your pressure is inconsistent — relax your grip and let the pen rest naturally.', trigger: { score: 'pressureControl', below: 50 } },
-	{ text: 'Your endpoints are drifting — aim for the target dots before you start the stroke.', trigger: { score: 'endpointAccuracy', below: 50 } },
-	{ text: 'Close the gap — aim to end your stroke exactly where you started.', trigger: { score: 'closureGap', below: 60 } },
+	{
+		text: 'Your accuracy is dipping — try slowing down slightly and focusing on the guide path.',
+		trigger: { score: 'pathDeviation', below: 55 },
+	},
+	{
+		text: 'Great accuracy! Now try to match it at a faster pace to build muscle memory.',
+		trigger: { score: 'pathDeviation', below: 101 },
+	},
+	{
+		text: 'Your strokes are jerky — focus on a single fluid motion without corrections.',
+		trigger: { score: 'smoothness', below: 55 },
+	},
+	{
+		text: 'Your strokes are uneven — try to maintain a constant speed throughout each stroke.',
+		trigger: { score: 'speedConsistency', below: 50 },
+	},
+	{
+		text: "Smooth strokes! Keep that even tempo — it's a sign of good arm control.",
+		trigger: { score: 'speedConsistency', below: 101 },
+	},
+	{
+		text: 'Your pressure is inconsistent — relax your grip and let the pen rest naturally.',
+		trigger: { score: 'pressureControl', below: 50 },
+	},
+	{
+		text: 'Your endpoints are drifting — aim for the target dots before you start the stroke.',
+		trigger: { score: 'endpointAccuracy', below: 50 },
+	},
+	{
+		text: 'Close the gap — aim to end your stroke exactly where you started.',
+		trigger: { score: 'closureGap', below: 60 },
+	},
 ];
 
 /**
@@ -100,7 +220,7 @@ export function pickTip(
 
 	if (recentScores.length >= 2) {
 		const metricAvg = (key: MetricKey): number | null => {
-			const vals = recentScores.map(s => s[key]).filter((v): v is number => v != null);
+			const vals = recentScores.map((s) => s[key]).filter((v): v is number => v != null);
 			return vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
 		};
 
@@ -121,12 +241,12 @@ export function pickTip(
 				// "Great accuracy, now go faster" — only when path accuracy is high but speed consistency is low
 				if (pt.trigger.below === 101 && pt.trigger.score === 'pathDeviation') {
 					const sc = scoreMap.speedConsistency;
-					if ((val) < 75 || (sc != null && sc >= 55)) continue;
+					if (val < 75 || (sc != null && sc >= 55)) continue;
 				}
 				if (pt.trigger.below === 101 && pt.trigger.score === 'speedConsistency') {
-					if ((val) < 60) continue;
+					if (val < 60) continue;
 				}
-				const idx = pool.findIndex(t => t.text === pt.text);
+				const idx = pool.findIndex((t) => t.text === pt.text);
 				if (idx !== -1 && !shownIndices.has(idx)) {
 					return { text: pool[idx].text, index: idx };
 				}
@@ -147,9 +267,7 @@ export function pickTip(
 }
 
 function buildPool(exerciseType: string): Tip[] {
-	const exerciseTips = EXERCISE_TIPS.filter(
-		t => !t.exercises || t.exercises.includes(exerciseType),
-	);
+	const exerciseTips = EXERCISE_TIPS.filter((t) => !t.exercises || t.exercises.includes(exerciseType));
 	const perfTips = PERFORMANCE_TIPS;
 
 	// Interleave: exercise-specific, general, performance

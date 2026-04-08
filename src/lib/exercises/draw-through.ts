@@ -43,7 +43,7 @@ function generateBox(
 ): { visibleEdges: LineParams[]; hiddenEdges: LineParams[]; allPts: { x: number; y: number }[] } | null {
 	const below = cy > horizonY;
 	const corner = { x: cx, y: cy };
-	const depthFraction = 0.20 + Math.random() * 0.30;
+	const depthFraction = 0.2 + Math.random() * 0.3;
 	const hDir = cx < vp.x ? 1 : -1;
 
 	const horizontal: LineParams = { x1: corner.x, y1: corner.y, x2: corner.x + hDir * edgeW, y2: corner.y };
@@ -55,7 +55,8 @@ function generateBox(
 	if (toVPLen < 1) return null;
 	const depthLen = toVPLen * depthFraction;
 	const depth: LineParams = {
-		x1: corner.x, y1: corner.y,
+		x1: corner.x,
+		y1: corner.y,
 		x2: corner.x + (toVP.x / toVPLen) * depthLen,
 		y2: corner.y + (toVP.y / toVPLen) * depthLen,
 	};
@@ -83,22 +84,22 @@ function generateBox(
 	// The hidden corner is b0 — directly behind c0, the farthest from the viewer.
 	// Visible: front face (4) + depth edges from c3,c1,c2 + back edges b1→b3, b2→b3
 	const visibleEdges: LineParams[] = [
-		horizontal,                                                      // c0→c1
-		vertical,                                                        // c0→c2
-		{ x1: c1.x, y1: c1.y, x2: c3.x, y2: c3.y },                   // c1→c3
-		{ x1: c2.x, y1: c2.y, x2: c3.x, y2: c3.y },                   // c2→c3
-		{ x1: c3.x, y1: c3.y, x2: b3.x, y2: b3.y },                   // c3→b3 (depth from nearest corner)
-		{ x1: c1.x, y1: c1.y, x2: b1.x, y2: b1.y },                   // c1→b1
-		{ x1: c2.x, y1: c2.y, x2: b2.x, y2: b2.y },                   // c2→b2
-		{ x1: b1.x, y1: b1.y, x2: b3.x, y2: b3.y },                   // b1→b3 (back face)
-		{ x1: b2.x, y1: b2.y, x2: b3.x, y2: b3.y },                   // b2→b3 (back face)
+		horizontal, // c0→c1
+		vertical, // c0→c2
+		{ x1: c1.x, y1: c1.y, x2: c3.x, y2: c3.y }, // c1→c3
+		{ x1: c2.x, y1: c2.y, x2: c3.x, y2: c3.y }, // c2→c3
+		{ x1: c3.x, y1: c3.y, x2: b3.x, y2: b3.y }, // c3→b3 (depth from nearest corner)
+		{ x1: c1.x, y1: c1.y, x2: b1.x, y2: b1.y }, // c1→b1
+		{ x1: c2.x, y1: c2.y, x2: b2.x, y2: b2.y }, // c2→b2
+		{ x1: b1.x, y1: b1.y, x2: b3.x, y2: b3.y }, // b1→b3 (back face)
+		{ x1: b2.x, y1: b2.y, x2: b3.x, y2: b3.y }, // b2→b3 (back face)
 	];
 
 	// Hidden: 3 edges meeting at b0 (the farthest corner from the viewer)
 	const hiddenEdges: LineParams[] = [
-		{ x1: c0.x, y1: c0.y, x2: b0.x, y2: b0.y },                   // c0→b0 (depth from far corner)
-		{ x1: b0.x, y1: b0.y, x2: b1.x, y2: b1.y },                   // b0→b1 (back face)
-		{ x1: b0.x, y1: b0.y, x2: b2.x, y2: b2.y },                   // b0→b2 (back face)
+		{ x1: c0.x, y1: c0.y, x2: b0.x, y2: b0.y }, // c0→b0 (depth from far corner)
+		{ x1: b0.x, y1: b0.y, x2: b1.x, y2: b1.y }, // b0→b1 (back face)
+		{ x1: b0.x, y1: b0.y, x2: b2.x, y2: b2.y }, // b0→b2 (back face)
 	];
 
 	const allPts = [c0, c1, c2, c3, b0, b1, b2, b3];
@@ -129,7 +130,7 @@ export const drawThroughPlugin = defineExercise({
 		let result: { visibleEdges: LineParams[]; hiddenEdges: LineParams[] } | null = null;
 
 		for (let attempt = 0; attempt < 40; attempt++) {
-			const edgeW = minDim * (0.25 + Math.random() * 0.20);
+			const edgeW = minDim * (0.25 + Math.random() * 0.2);
 			const edgeH = edgeW * (0.6 + Math.random() * 0.6);
 			const maxSz = Math.max(edgeW, edgeH) * 2;
 			const slots = placeNonOverlapping(1, canvasW, canvasH, () => ({ w: maxSz, h: maxSz }), 50, 30);
@@ -146,7 +147,7 @@ export const drawThroughPlugin = defineExercise({
 		}
 
 		if (!result) {
-			const edgeW = minDim * 0.30;
+			const edgeW = minDim * 0.3;
 			const edgeH = edgeW * 0.8;
 			const cy = s.horizonY + canvasH * 0.25;
 			const hDir = s.vp.x > canvasW / 2 ? -1 : 1;
@@ -237,7 +238,10 @@ export const drawThroughPlugin = defineExercise({
 			const e = p.hiddenEdges[i];
 			const mid = { x: (e.x1 + e.x2) / 2, y: (e.y1 + e.y2) / 2 };
 			const d = Math.sqrt((strokeMid.x - mid.x) ** 2 + (strokeMid.y - mid.y) ** 2);
-			if (d < bestDist) { bestDist = d; bestIdx = i; }
+			if (d < bestDist) {
+				bestDist = d;
+				bestIdx = i;
+			}
 		}
 
 		const edge = p.hiddenEdges[bestIdx];
@@ -259,7 +263,10 @@ export const drawThroughPlugin = defineExercise({
 
 	getCenter(params: Record<string, unknown>) {
 		const p = params as unknown as DrawThroughParams;
-		const all = [...p.visibleEdges, ...p.hiddenEdges].flatMap(e => [{ x: e.x1, y: e.y1 }, { x: e.x2, y: e.y2 }]);
+		const all = [...p.visibleEdges, ...p.hiddenEdges].flatMap((e) => [
+			{ x: e.x1, y: e.y1 },
+			{ x: e.x2, y: e.y2 },
+		]);
 		return {
 			x: all.reduce((s, pt) => s + pt.x, 0) / all.length,
 			y: all.reduce((s, pt) => s + pt.y, 0) / all.length,
@@ -268,9 +275,12 @@ export const drawThroughPlugin = defineExercise({
 
 	getBounds(params: Record<string, unknown>) {
 		const p = params as unknown as DrawThroughParams;
-		const all = [...p.visibleEdges, ...p.hiddenEdges].flatMap(e => [{ x: e.x1, y: e.y1 }, { x: e.x2, y: e.y2 }]);
-		const xs = all.map(pt => pt.x);
-		const ys = all.map(pt => pt.y);
+		const all = [...p.visibleEdges, ...p.hiddenEdges].flatMap((e) => [
+			{ x: e.x1, y: e.y1 },
+			{ x: e.x2, y: e.y2 },
+		]);
+		const xs = all.map((pt) => pt.x);
+		const ys = all.map((pt) => pt.y);
 		return {
 			minX: Math.min(...xs) - 10,
 			minY: Math.min(...ys) - 10,

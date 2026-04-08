@@ -8,14 +8,10 @@ const COLORS: Record<string, string> = {
 	pressure_spike: '#c084fc',
 	hesitation: '#fb923c',
 	pressure_inconsistent: '#f472b6',
-	pressure_deviation: '#38bdf8'
+	pressure_deviation: '#38bdf8',
 };
 
-export function renderHighlights(
-	ctx: CanvasRenderingContext2D,
-	stroke: Stroke,
-	score: StrokeScore
-): void {
+export function renderHighlights(ctx: CanvasRenderingContext2D, stroke: Stroke, score: StrokeScore): void {
 	const pts = stroke.smoothedPoints.length > 0 ? stroke.smoothedPoints : stroke.rawPoints;
 	if (pts.length < 2) return;
 
@@ -48,11 +44,7 @@ export function renderHighlights(
 	}
 }
 
-export function renderPressureHighlights(
-	ctx: CanvasRenderingContext2D,
-	stroke: Stroke,
-	score: StrokeScore
-): void {
+export function renderPressureHighlights(ctx: CanvasRenderingContext2D, stroke: Stroke, score: StrokeScore): void {
 	const pts = stroke.smoothedPoints.length > 0 ? stroke.smoothedPoints : stroke.rawPoints;
 	if (pts.length < 2) return;
 
@@ -85,7 +77,7 @@ function drawColoredStroke(
 	ctx: CanvasRenderingContext2D,
 	pts: { x: number; y: number }[],
 	color: string,
-	lineWidth: number
+	lineWidth: number,
 ): void {
 	ctx.beginPath();
 	ctx.moveTo(pts[0].x, pts[0].y);

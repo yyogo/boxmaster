@@ -105,9 +105,7 @@ export function scoreEndpointAccuracy(
 
 	const s = points[0];
 	const e = points[points.length - 1];
-	const refLen = Math.sqrt(
-		(target.end.x - target.start.x) ** 2 + (target.end.y - target.start.y) ** 2,
-	);
+	const refLen = Math.sqrt((target.end.x - target.start.x) ** 2 + (target.end.y - target.start.y) ** 2);
 	if (refLen < 1) return 100;
 
 	const fwdStart = Math.sqrt((s.x - target.start.x) ** 2 + (s.y - target.start.y) ** 2);
@@ -128,10 +126,7 @@ export function scoreEndpointAccuracy(
  * Closure Gap — how well a closed shape's stroke returns to its start.
  * Normalised by perimeter so large and small shapes are comparable.
  */
-export function scoreClosureGap(
-	points: StrokePoint[],
-	refPerimeter: number,
-): number {
+export function scoreClosureGap(points: StrokePoint[], refPerimeter: number): number {
 	if (points.length < 3 || refPerimeter < 1) return 100;
 
 	const s = points[0];
@@ -147,13 +142,10 @@ export function scoreClosureGap(
  * Without a target profile: measures raw pressure variance (low variance = high score).
  * With a target profile: measures match to the target.
  */
-export function scorePressureControl(
-	points: StrokePoint[],
-	targetProfile?: number[],
-): number | null {
+export function scorePressureControl(points: StrokePoint[], targetProfile?: number[]): number | null {
 	if (points.length < 3) return null;
 
-	const uniqueP = new Set(points.map(p => Math.round(p.pressure * 100)));
+	const uniqueP = new Set(points.map((p) => Math.round(p.pressure * 100)));
 	if (uniqueP.size <= 1) return null;
 
 	if (targetProfile && targetProfile.length > 0) {
@@ -167,7 +159,7 @@ export function scorePressureControl(
 		return Math.round(Math.max(0, Math.min(100, 100 - avgErr * 333)));
 	}
 
-	const pressures = points.map(p => p.pressure);
+	const pressures = points.map((p) => p.pressure);
 	const mean = pressures.reduce((a, b) => a + b, 0) / pressures.length;
 	const variance = pressures.reduce((sum, p) => sum + (p - mean) ** 2, 0) / pressures.length;
 	const stdev = Math.sqrt(variance);
@@ -184,7 +176,7 @@ export function scoreTaperQuality(
 ): number | null {
 	if (points.length < 5) return null;
 
-	const uniqueP = new Set(points.map(p => Math.round(p.pressure * 100)));
+	const uniqueP = new Set(points.map((p) => Math.round(p.pressure * 100)));
 	if (uniqueP.size <= 1) return null;
 
 	const n = points.length;
@@ -219,10 +211,7 @@ export function scoreStrokeEconomy(actual: number, expected: number): number {
 
 // --- Segment detection (moved from flow.ts) ---
 
-export function detectHesitations(
-	points: StrokePoint[],
-	thresholdMs = 80,
-): { start: number; end: number }[] {
+export function detectHesitations(points: StrokePoint[], thresholdMs = 80): { start: number; end: number }[] {
 	const hesitations: { start: number; end: number }[] = [];
 	let hesStart = -1;
 
@@ -255,10 +244,7 @@ export function detectHesitations(
 	return hesitations;
 }
 
-export function detectJitter(
-	points: StrokePoint[],
-	windowSize = 10,
-): { start: number; end: number }[] {
+export function detectJitter(points: StrokePoint[], windowSize = 10): { start: number; end: number }[] {
 	if (points.length < windowSize) return [];
 
 	const jittery: { start: number; end: number }[] = [];
@@ -290,12 +276,10 @@ export function detectJitter(
 	return jittery;
 }
 
-export function detectPressureSpikes(
-	points: StrokePoint[],
-): { start: number; end: number }[] {
+export function detectPressureSpikes(points: StrokePoint[]): { start: number; end: number }[] {
 	if (points.length < 5) return [];
 
-	const pressures = points.map(p => p.pressure);
+	const pressures = points.map((p) => p.pressure);
 	const mean = pressures.reduce((a, b) => a + b, 0) / pressures.length;
 	const variance = pressures.reduce((sum, p) => sum + (p - mean) ** 2, 0) / pressures.length;
 	const stdev = Math.sqrt(variance);

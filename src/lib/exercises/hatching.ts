@@ -10,7 +10,7 @@ import {
 	outlineCornersLocal,
 	localToWorld,
 	xExtentAtLocalY,
-	assignStrokesToLinesMinCost
+	assignStrokesToLinesMinCost,
 } from './hatching-geometry';
 
 export interface HatchParams {
@@ -55,8 +55,7 @@ function generateHatch(canvasW: number, canvasH: number, _toWorld?: CoordTransfo
 	const halfW = regionW / 2;
 	const halfH = regionH / 2;
 	const skew = regionKind === 'parallelogram' ? (Math.random() - 0.5) * regionW * 0.55 : 0;
-	const halfWBottom =
-		regionKind === 'trapezoid' ? halfW * (0.55 + Math.random() * 0.45) : halfW;
+	const halfWBottom = regionKind === 'trapezoid' ? halfW * (0.55 + Math.random() * 0.45) : halfW;
 
 	const cos = Math.cos(rotation);
 	const sin = Math.sin(rotation);
@@ -72,8 +71,7 @@ function generateHatch(canvasW: number, canvasH: number, _toWorld?: CoordTransfo
 
 	const lines: LineParams[] = [];
 	for (let i = 0; i < lineCount; i++) {
-		const localY =
-			lineCount === 1 ? (yMin + yMax) / 2 : yMin + ((yMax - yMin) * i) / (lineCount - 1);
+		const localY = lineCount === 1 ? (yMin + yMax) / 2 : yMin + ((yMax - yMin) * i) / (lineCount - 1);
 		const { x0, x1 } = xExtentAtLocalY(regionKind, localY, halfW, halfH, skew, halfWBottom);
 		const p0 = localToWorld(x0, localY, cx, cy, cos, sin);
 		const p1 = localToWorld(x1, localY, cx, cy, cos, sin);
@@ -89,7 +87,7 @@ function generateHatch(canvasW: number, canvasH: number, _toWorld?: CoordTransfo
 		skew,
 		halfWBottom,
 		localYMin: yMin,
-		localYMax: yMax
+		localYMax: yMax,
 	};
 }
 
@@ -185,7 +183,7 @@ export function renderHatchFillProgress(
 	p: HatchParams,
 	progress: number,
 	fillFromLowY: boolean,
-	lightTheme: boolean
+	lightTheme: boolean,
 ): void {
 	if (progress <= 0) return;
 	const t = Math.min(1, Math.max(0, progress));
@@ -230,7 +228,7 @@ function scoreOneLine(points: StrokePoint[], line: LineParams): StrokeScore {
 		smoothness: true,
 		speedConsistency: true,
 		endpointAccuracy: { start: { x: line.x1, y: line.y1 }, end: { x: line.x2, y: line.y2 } },
-		extraSegments: extra
+		extraSegments: extra,
 	});
 }
 
@@ -252,7 +250,7 @@ export const hatchingPlugin = defineExercise({
 			mode,
 			strokeCount: params.lines.length,
 			references: [{ type: 'hatching', params }],
-			availableModes: ['tracing', 'challenge', 'free']
+			availableModes: ['tracing', 'challenge', 'free'],
 		};
 	},
 
@@ -271,7 +269,7 @@ export const hatchingPlugin = defineExercise({
 		ctx.lineWidth = 1.25;
 		ctx.setLineDash([4, 4]);
 		const corners = outlineCornersLocal(p.regionKind, halfW, halfH, p.skew, p.halfWBottom).map((c) =>
-			localToWorld(c.x, c.y, b.cx, b.cy, cos, sin)
+			localToWorld(c.x, c.y, b.cx, b.cy, cos, sin),
 		);
 		ctx.beginPath();
 		ctx.moveTo(corners[0].x, corners[0].y);
@@ -316,7 +314,7 @@ export const hatchingPlugin = defineExercise({
 			return buildMetricScore(points, {
 				pathDeviation: null,
 				smoothness: true,
-				speedConsistency: true
+				speedConsistency: true,
 			});
 		}
 		const line = hp.lines[strokeIndex];
@@ -369,18 +367,24 @@ export const hatchingPlugin = defineExercise({
 		const halfW = b.w / 2;
 		const halfH = b.h / 2;
 		const outline = outlineCornersLocal(p.regionKind, halfW, halfH, p.skew, p.halfWBottom).map((c) =>
-			localToWorld(c.x, c.y, b.cx, b.cy, cos, sin)
+			localToWorld(c.x, c.y, b.cx, b.cy, cos, sin),
 		);
-		const allPts = [...p.lines.flatMap((l) => [{ x: l.x1, y: l.y1 }, { x: l.x2, y: l.y2 }]), ...outline];
+		const allPts = [
+			...p.lines.flatMap((l) => [
+				{ x: l.x1, y: l.y1 },
+				{ x: l.x2, y: l.y2 },
+			]),
+			...outline,
+		];
 		const xs = allPts.map((pt) => pt.x);
 		const ys = allPts.map((pt) => pt.y);
 		return {
 			minX: Math.min(...xs) - 10,
 			minY: Math.min(...ys) - 10,
 			maxX: Math.max(...xs) + 10,
-			maxY: Math.max(...ys) + 10
+			maxY: Math.max(...ys) + 10,
 		};
-	}
+	},
 });
 
 registerExercise(hatchingPlugin);

@@ -41,7 +41,7 @@ export async function getProgressSummaries(): Promise<ProgressSummary[]> {
 			bestScore: Math.max(...scores),
 			recentAvg: Math.round(recentAvg),
 			trend,
-			lastAttempt: sorted[sorted.length - 1]?.timestamp ?? null
+			lastAttempt: sorted[sorted.length - 1]?.timestamp ?? null,
 		});
 	}
 

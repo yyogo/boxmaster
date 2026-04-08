@@ -1,22 +1,9 @@
-import type {
-	ExerciseConfig,
-	ExerciseMode,
-	LineParams,
-	ThreePointBoxParams,
-	ReferenceShape,
-} from './types';
+import type { ExerciseConfig, ExerciseMode, LineParams, ThreePointBoxParams, ReferenceShape } from './types';
 import type { StrokePoint, Stroke } from '$lib/input/stroke';
 import type { StrokeScore } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
 import { pointToSegmentDist } from '$lib/scoring/geometry';
-import {
-	defineExercise,
-	buildMetricScore,
-	getStrokePoints,
-	strokeChord,
-	strokeArcLen,
-	angleDiff,
-} from './plugin';
+import { defineExercise, buildMetricScore, getStrokePoints, strokeChord, strokeArcLen, angleDiff } from './plugin';
 import { registerExercise } from './registry';
 import { drawDot, scoreLineAccuracy, highlightLineDivergent } from './utils';
 
@@ -29,26 +16,10 @@ interface BoxStudyParams extends ThreePointBoxParams {
 	challengeCorner: number;
 }
 
-const VP_COLORS = [
-	'rgba(255, 120, 80, 0.9)',
-	'rgba(80, 200, 255, 0.9)',
-	'rgba(160, 255, 80, 0.9)',
-];
-const VP_EXT_COLORS = [
-	'rgba(255, 120, 80, 0.4)',
-	'rgba(80, 200, 255, 0.4)',
-	'rgba(160, 255, 80, 0.4)',
-];
-const VP_ARC_COLORS = [
-	'rgba(255, 120, 80, 0.7)',
-	'rgba(80, 200, 255, 0.7)',
-	'rgba(160, 255, 80, 0.7)',
-];
-const IDEAL_LINE_COLORS = [
-	'rgba(255, 120, 80, 0.22)',
-	'rgba(80, 200, 255, 0.22)',
-	'rgba(160, 255, 80, 0.22)',
-];
+const VP_COLORS = ['rgba(255, 120, 80, 0.9)', 'rgba(80, 200, 255, 0.9)', 'rgba(160, 255, 80, 0.9)'];
+const VP_EXT_COLORS = ['rgba(255, 120, 80, 0.4)', 'rgba(80, 200, 255, 0.4)', 'rgba(160, 255, 80, 0.4)'];
+const VP_ARC_COLORS = ['rgba(255, 120, 80, 0.7)', 'rgba(80, 200, 255, 0.7)', 'rgba(160, 255, 80, 0.7)'];
+const IDEAL_LINE_COLORS = ['rgba(255, 120, 80, 0.22)', 'rgba(80, 200, 255, 0.22)', 'rgba(160, 255, 80, 0.22)'];
 const VP_LABEL_NAMES = ['orange', 'cyan', 'green'];
 const GIVEN_EDGE_COLOR = 'rgba(180, 220, 255, 0.8)';
 const GUIDE_COLOR_FAINT = 'rgba(130, 185, 255, 0.35)';
@@ -61,20 +32,14 @@ const ARC_ANGLE_THRESHOLD = 0.04;
 // Corner 1 (c2, VP1 arm): edges toward VP0 and VP2
 // Corner 2 (c3, VP2 arm): edges toward VP0 and VP1
 const CHALLENGE_SEED_INDICES: [number, number][] = [
-	[3, 6],  // c1→c4 (VP1), c1→c5 (VP2)
-	[0, 7],  // c2→c4 (VP0), c2→c6 (VP2)
-	[1, 4],  // c3→c5 (VP0), c3→c6 (VP1)
+	[3, 6], // c1→c4 (VP1), c1→c5 (VP2)
+	[0, 7], // c2→c4 (VP0), c2→c6 (VP2)
+	[1, 4], // c3→c5 (VP0), c3→c6 (VP1)
 ];
 
 // --- Geometry helpers ---
 
-function drawCrosshair(
-	ctx: CanvasRenderingContext2D,
-	x: number,
-	y: number,
-	size: number,
-	color: string,
-) {
+function drawCrosshair(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) {
 	ctx.beginPath();
 	ctx.moveTo(x - size, y);
 	ctx.lineTo(x + size, y);
@@ -96,13 +61,7 @@ function lineLineIntersect(p1: Pt, p2: Pt, p3: Pt, p4: Pt): Pt | null {
 	return { x: p1.x + t * d1x, y: p1.y + t * d1y };
 }
 
-function rayCanvasExtent(
-	origin: Pt,
-	dx: number,
-	dy: number,
-	canvasW: number,
-	canvasH: number,
-): number {
+function rayCanvasExtent(origin: Pt, dx: number, dy: number, canvasW: number, canvasH: number): number {
 	let tMax = Infinity;
 	if (dx > 1e-9) tMax = Math.min(tMax, (canvasW - origin.x) / dx);
 	else if (dx < -1e-9) tMax = Math.min(tMax, -origin.x / dx);
@@ -111,10 +70,7 @@ function rayCanvasExtent(
 	return Math.max(0, tMax);
 }
 
-function buildExpectedEdges(
-	c1: Pt, c2: Pt, c3: Pt,
-	c4: Pt, c5: Pt, c6: Pt, c7: Pt,
-): TaggedEdge[] {
+function buildExpectedEdges(c1: Pt, c2: Pt, c3: Pt, c4: Pt, c5: Pt, c6: Pt, c7: Pt): TaggedEdge[] {
 	return [
 		{ x1: c2.x, y1: c2.y, x2: c4.x, y2: c4.y, vpIndex: 0 },
 		{ x1: c3.x, y1: c3.y, x2: c5.x, y2: c5.y, vpIndex: 0 },
@@ -128,10 +84,7 @@ function buildExpectedEdges(
 	];
 }
 
-function computeBoxVertices(
-	endpoints: Pt[],
-	vps: [Pt, Pt, Pt],
-): { c4: Pt; c5: Pt; c6: Pt; c7: Pt } | null {
+function computeBoxVertices(endpoints: Pt[], vps: [Pt, Pt, Pt]): { c4: Pt; c5: Pt; c6: Pt; c7: Pt } | null {
 	const [c1, c2, c3] = endpoints;
 	const c4 = lineLineIntersect(c1, vps[1], c2, vps[0]);
 	const c5 = lineLineIntersect(c1, vps[2], c3, vps[0]);
@@ -185,10 +138,7 @@ function seedEdges(p: BoxStudyParams): TaggedEdge[] {
 
 // --- Generation (moderate off-canvas VPs) ---
 
-function generateBoxStudy(
-	canvasW: number,
-	canvasH: number,
-): ThreePointBoxParams | null {
+function generateBoxStudy(canvasW: number, canvasH: number): ThreePointBoxParams | null {
 	const minDim = Math.min(canvasW, canvasH);
 	const margin = minDim * 0.15;
 
@@ -201,11 +151,7 @@ function generateBoxStudy(
 	const u2 = Math.random() * (Math.PI / 2);
 	const lo = Math.min(u1, u2);
 	const hi = Math.max(u1, u2);
-	const gaps = [
-		lo + Math.PI / 2,
-		hi - lo + Math.PI / 2,
-		Math.PI / 2 - hi + Math.PI / 2,
-	];
+	const gaps = [lo + Math.PI / 2, hi - lo + Math.PI / 2, Math.PI / 2 - hi + Math.PI / 2];
 
 	const theta0 = Math.random() * Math.PI * 2;
 	const thetas = [theta0, theta0 + gaps[0], theta0 + gaps[0] + gaps[1]];
@@ -235,19 +181,10 @@ function generateBoxStudy(
 	const { c4, c5, c6, c7 } = verts;
 
 	for (const pt of [c4, c5, c6, c7]) {
-		if (
-			pt.x < -canvasW * 0.3 ||
-			pt.x > canvasW * 1.3 ||
-			pt.y < -canvasH * 0.3 ||
-			pt.y > canvasH * 1.3
-		)
-			return null;
+		if (pt.x < -canvasW * 0.3 || pt.x > canvasW * 1.3 || pt.y < -canvasH * 0.3 || pt.y > canvasH * 1.3) return null;
 	}
 
-	const expectedEdges = buildExpectedEdges(
-		endpoints[0], endpoints[1], endpoints[2],
-		c4, c5, c6, c7,
-	);
+	const expectedEdges = buildExpectedEdges(endpoints[0], endpoints[1], endpoints[2], c4, c5, c6, c7);
 
 	const minEdgeLen = minDim * 0.035;
 	for (const e of expectedEdges) {
@@ -266,10 +203,7 @@ function generateBoxStudy(
 	};
 }
 
-function generateFallbackBoxStudy(
-	canvasW: number,
-	canvasH: number,
-): ThreePointBoxParams {
+function generateFallbackBoxStudy(canvasW: number, canvasH: number): ThreePointBoxParams {
 	const cx = canvasW / 2;
 	const cy = canvasH / 2;
 	const minDim = Math.min(canvasW, canvasH);
@@ -297,19 +231,13 @@ function generateFallbackBoxStudy(
 			{ x1: c0.x, y1: c0.y, x2: endpoints[1].x, y2: endpoints[1].y },
 			{ x1: c0.x, y1: c0.y, x2: endpoints[2].x, y2: endpoints[2].y },
 		],
-		expectedEdges: buildExpectedEdges(
-			endpoints[0], endpoints[1], endpoints[2],
-			c4, c5, c6, c7,
-		),
+		expectedEdges: buildExpectedEdges(endpoints[0], endpoints[1], endpoints[2], c4, c5, c6, c7),
 	};
 }
 
 // --- Stroke matching ---
 
-function strokeFollowsEdge(
-	pts: { x: number; y: number }[],
-	edges: TaggedEdge[],
-): boolean {
+function strokeFollowsEdge(pts: { x: number; y: number }[], edges: TaggedEdge[]): boolean {
 	if (pts.length < 2) return false;
 	const chord = strokeChord(pts);
 	const sampleStep = Math.max(1, Math.floor(pts.length / 10));
@@ -328,10 +256,7 @@ function strokeFollowsEdge(
 	return false;
 }
 
-function matchStrokeToEdge(
-	pts: { x: number; y: number }[],
-	edges: TaggedEdge[],
-): TaggedEdge | null {
+function matchStrokeToEdge(pts: { x: number; y: number }[], edges: TaggedEdge[]): TaggedEdge | null {
 	if (pts.length < 2 || edges.length === 0) return null;
 	const mid = {
 		x: (pts[0].x + pts[pts.length - 1].x) / 2,
@@ -474,10 +399,7 @@ function straightnessScore(pts: StrokePoint[]): number {
 
 // --- Diagnosis ---
 
-function buildDiagnosis(
-	groups: [StrokeDir[], StrokeDir[], StrokeDir[]],
-	inferredVPs: (Pt | null)[],
-): string {
+function buildDiagnosis(groups: [StrokeDir[], StrokeDir[], StrokeDir[]], inferredVPs: (Pt | null)[]): string {
 	const issues: string[] = [];
 
 	for (let i = 0; i < 3; i++) {
@@ -535,11 +457,7 @@ export const boxStudyPlugin = defineExercise({
 	instructions:
 		'Complete the box — each set of parallel edges should converge toward the same hidden VP. Press Done to see your convergence analysis.',
 
-	generate(
-		mode: ExerciseMode,
-		canvasW: number,
-		canvasH: number,
-	): ExerciseConfig {
+	generate(mode: ExerciseMode, canvasW: number, canvasH: number): ExerciseConfig {
 		let base: ThreePointBoxParams | null = null;
 		for (let attempt = 0; attempt < 100; attempt++) {
 			base = generateBoxStudy(canvasW, canvasH);
@@ -568,10 +486,7 @@ export const boxStudyPlugin = defineExercise({
 		};
 	},
 
-	renderScaffold(
-		ctx: CanvasRenderingContext2D,
-		params: Record<string, unknown>,
-	) {
+	renderScaffold(ctx: CanvasRenderingContext2D, params: Record<string, unknown>) {
 		const p = params as unknown as BoxStudyParams;
 		if (p.mode === 'tracing') return;
 
@@ -598,11 +513,7 @@ export const boxStudyPlugin = defineExercise({
 		}
 	},
 
-	renderGuide(
-		ctx: CanvasRenderingContext2D,
-		params: Record<string, unknown>,
-		visibility: GuideVisibility,
-	) {
+	renderGuide(ctx: CanvasRenderingContext2D, params: Record<string, unknown>, visibility: GuideVisibility) {
 		const p = params as unknown as BoxStudyParams;
 
 		if (visibility === 'hidden') return;
@@ -645,11 +556,7 @@ export const boxStudyPlugin = defineExercise({
 		// 'hints' (challenge active drawing): scaffold handles seed edges
 	},
 
-	renderReview(
-		ctx: CanvasRenderingContext2D,
-		params: Record<string, unknown>,
-		strokes: Stroke[],
-	) {
+	renderReview(ctx: CanvasRenderingContext2D, params: Record<string, unknown>, strokes: Stroke[]) {
 		const p = params as unknown as BoxStudyParams;
 		const matchEdges = allEdges(p);
 
@@ -664,11 +571,7 @@ export const boxStudyPlugin = defineExercise({
 			groups[sd.edge.vpIndex].push(sd);
 		}
 
-		const inferredVPs: (Pt | null)[] = [
-			inferGroupVP(groups[0]),
-			inferGroupVP(groups[1]),
-			inferGroupVP(groups[2]),
-		];
+		const inferredVPs: (Pt | null)[] = [inferGroupVP(groups[0]), inferGroupVP(groups[1]), inferGroupVP(groups[2])];
 
 		for (const sd of allDirs) {
 			const vpIdx = sd.edge.vpIndex;
@@ -678,14 +581,8 @@ export const boxStudyPlugin = defineExercise({
 				const dirX = sd.dx / sd.len;
 				const dirY = sd.dy / sd.len;
 				ctx.beginPath();
-				ctx.moveTo(
-					sd.start.x - dirX * EXTENSION_LEN,
-					sd.start.y - dirY * EXTENSION_LEN,
-				);
-				ctx.lineTo(
-					sd.end.x + dirX * EXTENSION_LEN,
-					sd.end.y + dirY * EXTENSION_LEN,
-				);
+				ctx.moveTo(sd.start.x - dirX * EXTENSION_LEN, sd.start.y - dirY * EXTENSION_LEN);
+				ctx.lineTo(sd.end.x + dirX * EXTENSION_LEN, sd.end.y + dirY * EXTENSION_LEN);
 				ctx.strokeStyle = VP_EXT_COLORS[vpIdx];
 				ctx.lineWidth = 1;
 				ctx.setLineDash([8, 6]);
@@ -703,10 +600,7 @@ export const boxStudyPlugin = defineExercise({
 			const sDirY = Math.sin(strokeAngle);
 			ctx.beginPath();
 			ctx.moveTo(origin.x, origin.y);
-			ctx.lineTo(
-				origin.x + sDirX * EXTENSION_LEN,
-				origin.y + sDirY * EXTENSION_LEN,
-			);
+			ctx.lineTo(origin.x + sDirX * EXTENSION_LEN, origin.y + sDirY * EXTENSION_LEN);
 			ctx.strokeStyle = VP_EXT_COLORS[vpIdx];
 			ctx.lineWidth = 1;
 			ctx.setLineDash([8, 6]);
@@ -717,10 +611,7 @@ export const boxStudyPlugin = defineExercise({
 			const iDirY = Math.sin(idealAngle);
 			ctx.beginPath();
 			ctx.moveTo(origin.x, origin.y);
-			ctx.lineTo(
-				origin.x + iDirX * EXTENSION_LEN,
-				origin.y + iDirY * EXTENSION_LEN,
-			);
+			ctx.lineTo(origin.x + iDirX * EXTENSION_LEN, origin.y + iDirY * EXTENSION_LEN);
 			ctx.strokeStyle = IDEAL_LINE_COLORS[vpIdx];
 			ctx.lineWidth = 1;
 			ctx.setLineDash([4, 8]);
@@ -782,17 +673,11 @@ export const boxStudyPlugin = defineExercise({
 		}
 	},
 
-	scoreStrokesForRound(
-		strokes: Stroke[],
-		reference: ReferenceShape,
-		mode: ExerciseMode,
-	): StrokeScore[] {
+	scoreStrokesForRound(strokes: Stroke[], reference: ReferenceShape, mode: ExerciseMode): StrokeScore[] {
 		const p = reference.params as unknown as BoxStudyParams;
 		const matchEdges = mode === 'tracing' ? allEdges(p) : drawableEdges(p);
 
-		const dirs: (StrokeDir | null)[] = strokes.map((s) =>
-			getStrokeDir(s, matchEdges),
-		);
+		const dirs: (StrokeDir | null)[] = strokes.map((s) => getStrokeDir(s, matchEdges));
 		const groups: [StrokeDir[], StrokeDir[], StrokeDir[]] = [[], [], []];
 		for (const sd of dirs) {
 			if (sd) groups[sd.edge.vpIndex].push(sd);
@@ -807,10 +692,9 @@ export const boxStudyPlugin = defineExercise({
 		return strokes.map((stroke, i) => {
 			const pts = getStrokePoints(stroke);
 			if (pts.length < 2) {
-				return buildMetricScore(
-					pts.length > 0 ? pts : [{ x: 0, y: 0, pressure: 0, timestamp: 0 }],
-					{ smoothness: true },
-				);
+				return buildMetricScore(pts.length > 0 ? pts : [{ x: 0, y: 0, pressure: 0, timestamp: 0 }], {
+					smoothness: true,
+				});
 			}
 
 			const sd = dirs[i];
@@ -849,11 +733,7 @@ export const boxStudyPlugin = defineExercise({
 		});
 	},
 
-	scoreStroke(
-		points: StrokePoint[],
-		_reference: ReferenceShape,
-		_strokeIndex: number,
-	): StrokeScore {
+	scoreStroke(points: StrokePoint[], _reference: ReferenceShape, _strokeIndex: number): StrokeScore {
 		return buildMetricScore(points, {
 			smoothness: true,
 			speedConsistency: true,
@@ -891,8 +771,7 @@ export const boxStudyPlugin = defineExercise({
 				}
 				const avgD = totalD / samples;
 				const sLen = strokeChord(pts);
-				if (avgD < Math.max(edgeLen * 0.12, 15) && sLen / edgeLen > 0.4)
-					return false;
+				if (avgD < Math.max(edgeLen * 0.12, 15) && sLen / edgeLen > 0.4) return false;
 			}
 		}
 

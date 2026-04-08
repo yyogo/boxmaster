@@ -17,7 +17,7 @@ export function createStroke(): Stroke {
 	return {
 		id: `stroke-${nextId++}-${Date.now()}`,
 		rawPoints: [],
-		smoothedPoints: []
+		smoothedPoints: [],
 	};
 }
 
@@ -47,7 +47,7 @@ function smoothPoints(raw: StrokePoint[]): StrokePoint[] {
 			x: sx / count,
 			y: sy / count,
 			pressure: raw[i].pressure,
-			timestamp: raw[i].timestamp
+			timestamp: raw[i].timestamp,
 		});
 	}
 	return result;

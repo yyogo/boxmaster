@@ -1,20 +1,9 @@
-import type {
-	ExerciseConfig,
-	ExerciseMode,
-	LineParams,
-	ThreePointBoxParams,
-	ReferenceShape,
-} from './types';
+import type { ExerciseConfig, ExerciseMode, LineParams, ThreePointBoxParams, ReferenceShape } from './types';
 import type { StrokePoint, Stroke } from '$lib/input/stroke';
 import type { StrokeScore } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
 import { pointToSegmentDist } from '$lib/scoring/geometry';
-import {
-	defineExercise,
-	buildMetricScore,
-	getStrokePoints,
-	strokeChord,
-} from './plugin';
+import { defineExercise, buildMetricScore, getStrokePoints, strokeChord } from './plugin';
 import { registerExercise } from './registry';
 import { drawDot, scoreLineAccuracy, highlightLineDivergent } from './utils';
 
@@ -25,29 +14,15 @@ interface FreeBoxParams extends ThreePointBoxParams {
 	mode: ExerciseMode;
 }
 
-const VP_COLORS = [
-	'rgba(255, 120, 80, 0.9)',
-	'rgba(80, 200, 255, 0.9)',
-	'rgba(160, 255, 80, 0.9)',
-];
-const VP_EXT_COLORS = [
-	'rgba(255, 120, 80, 0.4)',
-	'rgba(80, 200, 255, 0.4)',
-	'rgba(160, 255, 80, 0.4)',
-];
+const VP_COLORS = ['rgba(255, 120, 80, 0.9)', 'rgba(80, 200, 255, 0.9)', 'rgba(160, 255, 80, 0.9)'];
+const VP_EXT_COLORS = ['rgba(255, 120, 80, 0.4)', 'rgba(80, 200, 255, 0.4)', 'rgba(160, 255, 80, 0.4)'];
 const GIVEN_EDGE_COLOR = 'rgba(180, 220, 255, 0.8)';
 const GUIDE_COLOR_FAINT = 'rgba(130, 185, 255, 0.35)';
 const EXTENSION_LEN = 5000;
 
 // --- Geometry helpers ---
 
-function drawCrosshair(
-	ctx: CanvasRenderingContext2D,
-	x: number,
-	y: number,
-	size: number,
-	color: string,
-) {
+function drawCrosshair(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) {
 	ctx.beginPath();
 	ctx.moveTo(x - size, y);
 	ctx.lineTo(x + size, y);
@@ -69,13 +44,7 @@ function lineLineIntersect(p1: Pt, p2: Pt, p3: Pt, p4: Pt): Pt | null {
 	return { x: p1.x + t * d1x, y: p1.y + t * d1y };
 }
 
-function rayCanvasExtent(
-	origin: Pt,
-	dx: number,
-	dy: number,
-	canvasW: number,
-	canvasH: number,
-): number {
+function rayCanvasExtent(origin: Pt, dx: number, dy: number, canvasW: number, canvasH: number): number {
 	let tMax = Infinity;
 	if (dx > 1e-9) tMax = Math.min(tMax, (canvasW - origin.x) / dx);
 	else if (dx < -1e-9) tMax = Math.min(tMax, -origin.x / dx);
@@ -84,10 +53,7 @@ function rayCanvasExtent(
 	return Math.max(0, tMax);
 }
 
-function buildExpectedEdges(
-	c1: Pt, c2: Pt, c3: Pt,
-	c4: Pt, c5: Pt, c6: Pt, c7: Pt,
-): TaggedEdge[] {
+function buildExpectedEdges(c1: Pt, c2: Pt, c3: Pt, c4: Pt, c5: Pt, c6: Pt, c7: Pt): TaggedEdge[] {
 	return [
 		{ x1: c2.x, y1: c2.y, x2: c4.x, y2: c4.y, vpIndex: 0 },
 		{ x1: c3.x, y1: c3.y, x2: c5.x, y2: c5.y, vpIndex: 0 },
@@ -101,10 +67,7 @@ function buildExpectedEdges(
 	];
 }
 
-function computeBoxVertices(
-	endpoints: Pt[],
-	vps: [Pt, Pt, Pt],
-): { c4: Pt; c5: Pt; c6: Pt; c7: Pt } | null {
+function computeBoxVertices(endpoints: Pt[], vps: [Pt, Pt, Pt]): { c4: Pt; c5: Pt; c6: Pt; c7: Pt } | null {
 	const [c1, c2, c3] = endpoints;
 	const c4 = lineLineIntersect(c1, vps[1], c2, vps[0]);
 	const c5 = lineLineIntersect(c1, vps[2], c3, vps[0]);
@@ -129,10 +92,7 @@ function allEdges(p: ThreePointBoxParams): TaggedEdge[] {
 
 // --- Generation ---
 
-function generate3PtBox(
-	canvasW: number,
-	canvasH: number,
-): ThreePointBoxParams | null {
+function generate3PtBox(canvasW: number, canvasH: number): ThreePointBoxParams | null {
 	const minDim = Math.min(canvasW, canvasH);
 	const margin = minDim * 0.15;
 
@@ -145,11 +105,7 @@ function generate3PtBox(
 	const u2 = Math.random() * (Math.PI / 2);
 	const lo = Math.min(u1, u2);
 	const hi = Math.max(u1, u2);
-	const gaps = [
-		lo + Math.PI / 2,
-		hi - lo + Math.PI / 2,
-		Math.PI / 2 - hi + Math.PI / 2,
-	];
+	const gaps = [lo + Math.PI / 2, hi - lo + Math.PI / 2, Math.PI / 2 - hi + Math.PI / 2];
 
 	const theta0 = Math.random() * Math.PI * 2;
 	const thetas = [theta0, theta0 + gaps[0], theta0 + gaps[0] + gaps[1]];
@@ -179,24 +135,14 @@ function generate3PtBox(
 	const { c4, c5, c6, c7 } = verts;
 
 	for (const pt of [c4, c5, c6, c7]) {
-		if (
-			pt.x < -canvasW * 0.3 ||
-			pt.x > canvasW * 1.3 ||
-			pt.y < -canvasH * 0.3 ||
-			pt.y > canvasH * 1.3
-		)
-			return null;
+		if (pt.x < -canvasW * 0.3 || pt.x > canvasW * 1.3 || pt.y < -canvasH * 0.3 || pt.y > canvasH * 1.3) return null;
 	}
 
-	const expectedEdges = buildExpectedEdges(
-		endpoints[0], endpoints[1], endpoints[2],
-		c4, c5, c6, c7,
-	);
+	const expectedEdges = buildExpectedEdges(endpoints[0], endpoints[1], endpoints[2], c4, c5, c6, c7);
 
 	const minEdgeLen = minDim * 0.03;
 	for (const e of expectedEdges) {
-		if (Math.hypot(e.x2 - e.x1, e.y2 - e.y1) < minEdgeLen)
-			return null;
+		if (Math.hypot(e.x2 - e.x1, e.y2 - e.y1) < minEdgeLen) return null;
 	}
 
 	return {
@@ -211,10 +157,7 @@ function generate3PtBox(
 	};
 }
 
-function generateFallbackBox(
-	canvasW: number,
-	canvasH: number,
-): ThreePointBoxParams {
+function generateFallbackBox(canvasW: number, canvasH: number): ThreePointBoxParams {
 	const cx = canvasW / 2;
 	const cy = canvasH / 2;
 	const minDim = Math.min(canvasW, canvasH);
@@ -242,19 +185,13 @@ function generateFallbackBox(
 			{ x1: c0.x, y1: c0.y, x2: endpoints[1].x, y2: endpoints[1].y },
 			{ x1: c0.x, y1: c0.y, x2: endpoints[2].x, y2: endpoints[2].y },
 		],
-		expectedEdges: buildExpectedEdges(
-			endpoints[0], endpoints[1], endpoints[2],
-			c4, c5, c6, c7,
-		),
+		expectedEdges: buildExpectedEdges(endpoints[0], endpoints[1], endpoints[2], c4, c5, c6, c7),
 	};
 }
 
 // --- Stroke matching ---
 
-function strokeFollowsEdge(
-	pts: { x: number; y: number }[],
-	edges: TaggedEdge[],
-): boolean {
+function strokeFollowsEdge(pts: { x: number; y: number }[], edges: TaggedEdge[]): boolean {
 	if (pts.length < 2) return false;
 	const chord = strokeChord(pts);
 	const sampleStep = Math.max(1, Math.floor(pts.length / 10));
@@ -273,10 +210,7 @@ function strokeFollowsEdge(
 	return false;
 }
 
-function matchStrokeToEdge(
-	pts: { x: number; y: number }[],
-	edges: TaggedEdge[],
-): TaggedEdge | null {
+function matchStrokeToEdge(pts: { x: number; y: number }[], edges: TaggedEdge[]): TaggedEdge | null {
 	if (pts.length < 2 || edges.length === 0) return null;
 	const mid = {
 		x: (pts[0].x + pts[pts.length - 1].x) / 2,
@@ -312,11 +246,7 @@ export const freeBoxesPlugin = defineExercise({
 	instructions:
 		'Complete the box — each edge family should converge toward its VP. Press Done to see your convergence analysis.',
 
-	generate(
-		mode: ExerciseMode,
-		canvasW: number,
-		canvasH: number,
-	): ExerciseConfig {
+	generate(mode: ExerciseMode, canvasW: number, canvasH: number): ExerciseConfig {
 		let base: ThreePointBoxParams | null = null;
 		for (let attempt = 0; attempt < 80; attempt++) {
 			base = generate3PtBox(canvasW, canvasH);
@@ -337,10 +267,7 @@ export const freeBoxesPlugin = defineExercise({
 		};
 	},
 
-	renderScaffold(
-		ctx: CanvasRenderingContext2D,
-		params: Record<string, unknown>,
-	) {
+	renderScaffold(ctx: CanvasRenderingContext2D, params: Record<string, unknown>) {
 		const p = params as unknown as FreeBoxParams;
 		if (p.mode === 'tracing') return;
 
@@ -363,11 +290,7 @@ export const freeBoxesPlugin = defineExercise({
 		}
 	},
 
-	renderGuide(
-		ctx: CanvasRenderingContext2D,
-		params: Record<string, unknown>,
-		visibility: GuideVisibility,
-	) {
+	renderGuide(ctx: CanvasRenderingContext2D, params: Record<string, unknown>, visibility: GuideVisibility) {
 		const p = params as unknown as FreeBoxParams;
 		if (visibility === 'hidden') return;
 
@@ -402,11 +325,7 @@ export const freeBoxesPlugin = defineExercise({
 		}
 	},
 
-	renderReview(
-		ctx: CanvasRenderingContext2D,
-		params: Record<string, unknown>,
-		strokes: Stroke[],
-	) {
+	renderReview(ctx: CanvasRenderingContext2D, params: Record<string, unknown>, strokes: Stroke[]) {
 		const p = params as unknown as FreeBoxParams;
 		const matchEdges = allEdges(p);
 
@@ -427,14 +346,8 @@ export const freeBoxesPlugin = defineExercise({
 			const dirY = dy / len;
 
 			ctx.beginPath();
-			ctx.moveTo(
-				start.x - dirX * EXTENSION_LEN,
-				start.y - dirY * EXTENSION_LEN,
-			);
-			ctx.lineTo(
-				end.x + dirX * EXTENSION_LEN,
-				end.y + dirY * EXTENSION_LEN,
-			);
+			ctx.moveTo(start.x - dirX * EXTENSION_LEN, start.y - dirY * EXTENSION_LEN);
+			ctx.lineTo(end.x + dirX * EXTENSION_LEN, end.y + dirY * EXTENSION_LEN);
 			ctx.strokeStyle = VP_EXT_COLORS[edge.vpIndex];
 			ctx.lineWidth = 1;
 			ctx.setLineDash([8, 6]);
@@ -443,11 +356,7 @@ export const freeBoxesPlugin = defineExercise({
 		}
 	},
 
-	scoreStrokesForRound(
-		strokes: Stroke[],
-		reference: ReferenceShape,
-		mode: ExerciseMode,
-	): StrokeScore[] {
+	scoreStrokesForRound(strokes: Stroke[], reference: ReferenceShape, mode: ExerciseMode): StrokeScore[] {
 		const p = reference.params as unknown as FreeBoxParams;
 		const matchEdges = mode === 'tracing' ? allEdges(p) : p.expectedEdges;
 
@@ -476,10 +385,7 @@ export const freeBoxesPlugin = defineExercise({
 			const toVPAngle = Math.atan2(vp.y - start.y, vp.x - start.x);
 			let angleDev = Math.abs(strokeAngle - toVPAngle);
 			if (angleDev > Math.PI) angleDev = 2 * Math.PI - angleDev;
-			const convergenceScore = Math.max(
-				0,
-				100 - (angleDev / (Math.PI / 6)) * 100,
-			);
+			const convergenceScore = Math.max(0, 100 - (angleDev / (Math.PI / 6)) * 100);
 
 			const combined = accuracy * 0.5 + convergenceScore * 0.5;
 			const extra = highlightLineDivergent(pts, edge);
@@ -497,11 +403,7 @@ export const freeBoxesPlugin = defineExercise({
 		});
 	},
 
-	scoreStroke(
-		points: StrokePoint[],
-		_reference: ReferenceShape,
-		_strokeIndex: number,
-	): StrokeScore {
+	scoreStroke(points: StrokePoint[], _reference: ReferenceShape, _strokeIndex: number): StrokeScore {
 		return buildMetricScore(points, {
 			smoothness: true,
 			speedConsistency: true,
@@ -540,8 +442,7 @@ export const freeBoxesPlugin = defineExercise({
 			}
 			const avgD = totalD / samples;
 			const sLen = strokeChord(pts);
-			if (avgD < Math.max(edgeLen * 0.12, 15) && sLen / edgeLen > 0.4)
-				return false;
+			if (avgD < Math.max(edgeLen * 0.12, 15) && sLen / edgeLen > 0.4) return false;
 		}
 
 		return true;

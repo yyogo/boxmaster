@@ -54,7 +54,7 @@ export const circlePlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'circle', params }],
-			availableModes: ['tracing', 'challenge']
+			availableModes: ['tracing', 'challenge'],
 		};
 	},
 
@@ -99,7 +99,13 @@ export const circlePlugin = defineExercise({
 		});
 	},
 
-	isStrokeRelevant(stroke: Stroke, reference: ReferenceShape, _canvasW: number, _canvasH: number, _mode: ExerciseMode): boolean {
+	isStrokeRelevant(
+		stroke: Stroke,
+		reference: ReferenceShape,
+		_canvasW: number,
+		_canvasH: number,
+		_mode: ExerciseMode,
+	): boolean {
 		const pts = getStrokePoints(stroke);
 		if (pts.length < 3) return false;
 		const p = reference.params as unknown as CircleParams;
@@ -121,7 +127,7 @@ export const circlePlugin = defineExercise({
 	getBounds(params: Record<string, unknown>) {
 		const p = params as unknown as CircleParams;
 		return { minX: p.cx - p.r - 10, minY: p.cy - p.r - 10, maxX: p.cx + p.r + 10, maxY: p.cy + p.r + 10 };
-	}
+	},
 });
 
 registerExercise(circlePlugin);

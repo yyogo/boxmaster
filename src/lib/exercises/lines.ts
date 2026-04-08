@@ -2,7 +2,15 @@ import type { ExerciseConfig, ExerciseMode, LineParams, ReferenceShape } from '.
 import type { StrokePoint, Stroke } from '$lib/input/stroke';
 import type { StrokeScore } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
-import { defineExercise, buildMetricScore, getStrokePoints, strokeChord, strokeArcLen, angleDiff, type CoordTransform } from './plugin';
+import {
+	defineExercise,
+	buildMetricScore,
+	getStrokePoints,
+	strokeChord,
+	strokeArcLen,
+	angleDiff,
+	type CoordTransform,
+} from './plugin';
 import { registerExercise } from './registry';
 import { GUIDE_COLOR, HINT_COLOR, drawDot, randomLine, scoreLineAccuracy, highlightLineDivergent } from './utils';
 
@@ -41,7 +49,7 @@ export const linePlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'line', params }],
-			availableModes: ['tracing', 'challenge', 'free']
+			availableModes: ['tracing', 'challenge', 'free'],
 		};
 	},
 
@@ -85,7 +93,13 @@ export const linePlugin = defineExercise({
 		});
 	},
 
-	isStrokeRelevant(stroke: Stroke, reference: ReferenceShape, canvasW: number, canvasH: number, mode: ExerciseMode): boolean {
+	isStrokeRelevant(
+		stroke: Stroke,
+		reference: ReferenceShape,
+		canvasW: number,
+		canvasH: number,
+		mode: ExerciseMode,
+	): boolean {
 		const pts = getStrokePoints(stroke);
 		if (pts.length < 2) return false;
 		const chord = strokeChord(pts);
@@ -127,9 +141,9 @@ export const linePlugin = defineExercise({
 			minX: Math.min(p.x1, p.x2) - margin,
 			minY: Math.min(p.y1, p.y2) - margin,
 			maxX: Math.max(p.x1, p.x2) + margin,
-			maxY: Math.max(p.y1, p.y2) + margin
+			maxY: Math.max(p.y1, p.y2) + margin,
 		};
-	}
+	},
 });
 
 registerExercise(linePlugin);

@@ -26,7 +26,7 @@ export function placeNonOverlapping(
 	sizeFn: (index: number) => { w: number; h: number },
 	margin = 30,
 	gap = 20,
-	maxAttempts = 200
+	maxAttempts = 200,
 ): { x: number; y: number; w: number; h: number }[] {
 	const placed: BoundingBox[] = [];
 

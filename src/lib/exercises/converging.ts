@@ -22,13 +22,7 @@ const EXTENSION_LEN = 9000;
 const MIN_WITNESS_ANGLE = 0.18; // radians — keep witness family readable
 const ANGLE_FULL_SCORE = Math.PI / 12; // 15° → 0 path points for angle component
 
-function drawCrosshair(
-	ctx: CanvasRenderingContext2D,
-	x: number,
-	y: number,
-	size: number,
-	color: string,
-) {
+function drawCrosshair(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) {
 	ctx.beginPath();
 	ctx.moveTo(x - size, y);
 	ctx.lineTo(x + size, y);
@@ -65,11 +59,7 @@ function segmentTowardVp(
 	return { x1: sx, y1: sy, x2: sx + ux * lineLen, y2: sy + uy * lineLen };
 }
 
-function witnessSeparation(
-	w0: LineParams,
-	w1: LineParams,
-	vp: { x: number; y: number },
-): number {
+function witnessSeparation(w0: LineParams, w1: LineParams, vp: { x: number; y: number }): number {
 	const a0 = Math.atan2(vp.y - w0.y1, vp.x - w0.x1);
 	const a1 = Math.atan2(vp.y - w1.y1, vp.x - w1.x1);
 	return angleDiff(a0, a1);
@@ -185,20 +175,8 @@ function generateFallback(
 	mode: ExerciseMode,
 ): ConvergingParams {
 	const margin = 56;
-	const w0 = segmentTowardVp(
-		margin,
-		canvasH - margin,
-		vp,
-		canvasW,
-		canvasH,
-	);
-	const w1 = segmentTowardVp(
-		canvasW - margin,
-		margin,
-		vp,
-		canvasW,
-		canvasH,
-	);
+	const w0 = segmentTowardVp(margin, canvasH - margin, vp, canvasW, canvasH);
+	const w1 = segmentTowardVp(canvasW - margin, margin, vp, canvasW, canvasH);
 	const targetLines: LineParams[] = [];
 	const cx = canvasW / 2;
 	const cy = canvasH / 2;
@@ -228,22 +206,13 @@ function angleTowardVpScore(
 	return Math.max(0, 100 - (dev / ANGLE_FULL_SCORE) * 100);
 }
 
-function startAnchorScore(
-	pts: StrokePoint[],
-	ax: number,
-	ay: number,
-	maxDist: number,
-): number {
+function startAnchorScore(pts: StrokePoint[], ax: number, ay: number, maxDist: number): number {
 	if (pts.length < 1) return 0;
 	const d = Math.hypot(pts[0].x - ax, pts[0].y - ay);
 	return Math.max(0, Math.min(100, 100 - (d / maxDist) * 100));
 }
 
-function buildChallengeStrokeScore(
-	pts: StrokePoint[],
-	line: LineParams,
-	vp: { x: number; y: number },
-): StrokeScore {
+function buildChallengeStrokeScore(pts: StrokePoint[], line: LineParams, vp: { x: number; y: number }): StrokeScore {
 	const anchor = { x: line.x1, y: line.y1 };
 	const refLen = Math.hypot(line.x2 - line.x1, line.y2 - line.y1);
 	const maxStartDist = Math.max(28, refLen * 0.14);
@@ -334,21 +303,11 @@ export const convergingPlugin = defineExercise({
 		return { vp: generateVp(canvasW, canvasH) } as ConvergingSession;
 	},
 
-	generateFromSession(
-		session: unknown,
-		mode: ExerciseMode,
-		canvasW: number,
-		canvasH: number,
-	): ExerciseConfig {
+	generateFromSession(session: unknown, mode: ExerciseMode, canvasW: number, canvasH: number): ExerciseConfig {
 		const s = session as ConvergingSession;
-		let params =
-			generateConverging(s.vp, canvasW, canvasH, mode) ??
-			generateFallback(s.vp, canvasW, canvasH, mode);
+		let params = generateConverging(s.vp, canvasW, canvasH, mode) ?? generateFallback(s.vp, canvasW, canvasH, mode);
 
-		const strokeCount =
-			mode === 'tracing'
-				? 2 + params.targetLines.length
-				: params.targetLines.length;
+		const strokeCount = mode === 'tracing' ? 2 + params.targetLines.length : params.targetLines.length;
 
 		return {
 			unit: 'perspective',
@@ -372,11 +331,7 @@ export const convergingPlugin = defineExercise({
 		drawCrosshair(ctx, p.vp.x, p.vp.y, 10, VP_COLOR);
 	},
 
-	renderGuide(
-		ctx: CanvasRenderingContext2D,
-		params: Record<string, unknown>,
-		visibility: GuideVisibility,
-	) {
+	renderGuide(ctx: CanvasRenderingContext2D, params: Record<string, unknown>, visibility: GuideVisibility) {
 		const p = params as unknown as ConvergingParams;
 		if (visibility === 'hidden') return;
 
@@ -427,11 +382,7 @@ export const convergingPlugin = defineExercise({
 		}
 	},
 
-	renderReview(
-		ctx: CanvasRenderingContext2D,
-		params: Record<string, unknown>,
-		strokes: Stroke[],
-	) {
+	renderReview(ctx: CanvasRenderingContext2D, params: Record<string, unknown>, strokes: Stroke[]) {
 		const p = params as unknown as ConvergingParams;
 		if (p.mode !== 'challenge') return;
 
@@ -457,12 +408,7 @@ export const convergingPlugin = defineExercise({
 		}
 	},
 
-	scoreStroke(
-		points: StrokePoint[],
-		reference: ReferenceShape,
-		strokeIndex: number,
-		mode: ExerciseMode,
-	): StrokeScore {
+	scoreStroke(points: StrokePoint[], reference: ReferenceShape, strokeIndex: number, mode: ExerciseMode): StrokeScore {
 		const p = reference.params as unknown as ConvergingParams;
 		const lines = mode === 'tracing' ? allGuideLines(p) : p.targetLines;
 		if (strokeIndex >= lines.length) {
@@ -485,11 +431,7 @@ export const convergingPlugin = defineExercise({
 		});
 	},
 
-	scoreStrokesForRound(
-		strokes: Stroke[],
-		reference: ReferenceShape,
-		mode: ExerciseMode,
-	): StrokeScore[] {
+	scoreStrokesForRound(strokes: Stroke[], reference: ReferenceShape, mode: ExerciseMode): StrokeScore[] {
 		const p = reference.params as unknown as ConvergingParams;
 
 		if (mode === 'challenge') {

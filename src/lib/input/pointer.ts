@@ -18,7 +18,7 @@ export function createPointerState(): PointerState {
 		activePointers: new Map(),
 		currentStroke: null,
 		prevMidpoint: null,
-		prevAngle: null
+		prevAngle: null,
 	};
 }
 
@@ -43,11 +43,7 @@ function angleBetween(a: { x: number; y: number }, b: { x: number; y: number }) 
 	return Math.atan2(b.y - a.y, b.x - a.x);
 }
 
-export function handlePointerDown(
-	state: PointerState,
-	e: PointerEvent,
-	cb: GestureCallbacks
-): PointerState {
+export function handlePointerDown(state: PointerState, e: PointerEvent, cb: GestureCallbacks): PointerState {
 	const next = { ...state, activePointers: new Map(state.activePointers) };
 	const pos = cb.toCanvasCoords(e);
 	next.activePointers.set(e.pointerId, pos);
@@ -59,7 +55,7 @@ export function handlePointerDown(
 			x: world.x,
 			y: world.y,
 			pressure: e.pressure || 0.5,
-			timestamp: performance.now()
+			timestamp: performance.now(),
 		};
 		addPoint(stroke, point);
 		next.currentStroke = stroke;
@@ -85,11 +81,7 @@ export function handlePointerDown(
 	return next;
 }
 
-export function handlePointerMove(
-	state: PointerState,
-	e: PointerEvent,
-	cb: GestureCallbacks
-): PointerState {
+export function handlePointerMove(state: PointerState, e: PointerEvent, cb: GestureCallbacks): PointerState {
 	const next = { ...state, activePointers: new Map(state.activePointers) };
 	const pos = cb.toCanvasCoords(e);
 	next.activePointers.set(e.pointerId, pos);
@@ -103,7 +95,7 @@ export function handlePointerMove(
 				x: cw.x,
 				y: cw.y,
 				pressure: ce.pressure || 0.5,
-				timestamp: performance.now()
+				timestamp: performance.now(),
 			});
 		}
 		if (coalescedEvents.length === 0) {
@@ -112,7 +104,7 @@ export function handlePointerMove(
 				x: world.x,
 				y: world.y,
 				pressure: e.pressure || 0.5,
-				timestamp: performance.now()
+				timestamp: performance.now(),
 			});
 		}
 		cb.onStrokeUpdate(next.currentStroke);
@@ -133,10 +125,7 @@ export function handlePointerMove(
 		next.prevMidpoint = pos;
 	} else if (next.mode === 'rotate' && next.prevMidpoint) {
 		const center = cb.getCenter();
-		const prevAngle = Math.atan2(
-			next.prevMidpoint.y - center.y,
-			next.prevMidpoint.x - center.x
-		);
+		const prevAngle = Math.atan2(next.prevMidpoint.y - center.y, next.prevMidpoint.x - center.x);
 		const currAngle = Math.atan2(pos.y - center.y, pos.x - center.x);
 		cb.onRotate(currAngle - prevAngle);
 		next.prevMidpoint = pos;
@@ -145,11 +134,7 @@ export function handlePointerMove(
 	return next;
 }
 
-export function handlePointerUp(
-	state: PointerState,
-	e: PointerEvent,
-	cb: GestureCallbacks
-): PointerState {
+export function handlePointerUp(state: PointerState, e: PointerEvent, cb: GestureCallbacks): PointerState {
 	const next = { ...state, activePointers: new Map(state.activePointers) };
 	next.activePointers.delete(e.pointerId);
 

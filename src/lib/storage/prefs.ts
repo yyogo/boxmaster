@@ -20,7 +20,7 @@ const DEFAULTS: UserPrefs = {
 	timerMode: false,
 	timerSeconds: 60,
 	penOnly: false,
-	modes: {}
+	modes: {},
 };
 
 export function loadPrefs(): UserPrefs {

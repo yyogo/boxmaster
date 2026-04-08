@@ -11,7 +11,7 @@ export function identityTransform(): ViewTransform {
 export function applyTransform(
 	ctx: CanvasRenderingContext2D,
 	t: ViewTransform,
-	center: { x: number; y: number }
+	center: { x: number; y: number },
 ): void {
 	ctx.translate(center.x, center.y);
 	ctx.rotate(t.rotation);
@@ -21,7 +21,7 @@ export function applyTransform(
 export function screenToWorld(
 	screen: { x: number; y: number },
 	t: ViewTransform,
-	center: { x: number; y: number }
+	center: { x: number; y: number },
 ): { x: number; y: number } {
 	const dx = screen.x - center.x;
 	const dy = screen.y - center.y;
@@ -29,14 +29,14 @@ export function screenToWorld(
 	const sin = Math.sin(-t.rotation);
 	return {
 		x: cos * dx - sin * dy + center.x - t.panX,
-		y: sin * dx + cos * dy + center.y - t.panY
+		y: sin * dx + cos * dy + center.y - t.panY,
 	};
 }
 
 export function worldToScreen(
 	world: { x: number; y: number },
 	t: ViewTransform,
-	center: { x: number; y: number }
+	center: { x: number; y: number },
 ): { x: number; y: number } {
 	const wx = world.x + t.panX - center.x;
 	const wy = world.y + t.panY - center.y;
@@ -44,6 +44,6 @@ export function worldToScreen(
 	const sin = Math.sin(t.rotation);
 	return {
 		x: cos * wx - sin * wy + center.x,
-		y: sin * wx + cos * wy + center.y
+		y: sin * wx + cos * wy + center.y,
 	};
 }

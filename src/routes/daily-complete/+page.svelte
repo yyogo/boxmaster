@@ -41,9 +41,7 @@
 		streak = getActiveStreak();
 
 		if (results.length > 0) {
-			overallScore = Math.round(
-				results.reduce((s, r) => s + r.score, 0) / results.length
-			);
+			overallScore = Math.round(results.reduce((s, r) => s + r.score, 0) / results.length);
 			totalShapes = results.reduce((s, r) => s + r.shapesCompleted, 0);
 		}
 	});
@@ -253,7 +251,8 @@
 			flex-direction: column;
 		}
 
-		.btn-primary, .btn-secondary {
+		.btn-primary,
+		.btn-secondary {
 			width: 100%;
 			text-align: center;
 		}

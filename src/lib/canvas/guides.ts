@@ -3,11 +3,7 @@ import { getPlugin } from '$lib/exercises/registry';
 
 export type GuideVisibility = 'full' | 'hints' | 'hidden';
 
-export function renderGuides(
-	ctx: CanvasRenderingContext2D,
-	config: ExerciseConfig,
-	visibility: GuideVisibility
-): void {
+export function renderGuides(ctx: CanvasRenderingContext2D, config: ExerciseConfig, visibility: GuideVisibility): void {
 	const plugin = getPlugin(config.type);
 
 	if (plugin.renderScaffold && config.references.length > 0) {

@@ -41,11 +41,7 @@ export interface RenderState {
 	reviewing?: boolean;
 }
 
-export function render(
-	ctx: CanvasRenderingContext2D,
-	canvas: HTMLCanvasElement,
-	state: RenderState
-): void {
+export function render(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, state: RenderState): void {
 	const rect = canvas.getBoundingClientRect();
 	const w = rect.width;
 	const h = rect.height;
@@ -66,16 +62,24 @@ export function render(
 			const flPlugin = tryGetPlugin(fl.config.type);
 			ctx.save();
 			ctx.globalAlpha = fl.alpha;
-			if (
-				fl.hatchProgress &&
-				fl.hatchProgress.fillFromLowY !== null &&
-				fl.hatchProgress.total > 0
-			) {
+			if (fl.hatchProgress && fl.hatchProgress.fillFromLowY !== null && fl.hatchProgress.total > 0) {
 				const progress = fl.hatchProgress.completed / fl.hatchProgress.total;
 				if (fl.config.type === 'hatching') {
-					renderHatchFillProgress(ctx, fl.config.references[0].params as HatchParams, progress, fl.hatchProgress.fillFromLowY, fl.hatchProgress.lightTheme);
+					renderHatchFillProgress(
+						ctx,
+						fl.config.references[0].params as HatchParams,
+						progress,
+						fl.hatchProgress.fillFromLowY,
+						fl.hatchProgress.lightTheme,
+					);
 				} else if (fl.config.type === 'hatching-advanced') {
-					renderAdvancedFillProgress(ctx, fl.config.references[0].params as HatchAdvancedParams, progress, fl.hatchProgress.fillFromLowY, fl.hatchProgress.lightTheme);
+					renderAdvancedFillProgress(
+						ctx,
+						fl.config.references[0].params as HatchAdvancedParams,
+						progress,
+						fl.hatchProgress.fillFromLowY,
+						fl.hatchProgress.lightTheme,
+					);
 				}
 			}
 			renderGuides(ctx, fl.config, fl.guideVisibility);
@@ -94,16 +98,24 @@ export function render(
 	}
 
 	if (state.exerciseConfig) {
-		if (
-			state.hatchProgress &&
-			state.hatchProgress.fillFromLowY !== null &&
-			state.hatchProgress.total > 0
-		) {
+		if (state.hatchProgress && state.hatchProgress.fillFromLowY !== null && state.hatchProgress.total > 0) {
 			const progress = state.hatchProgress.completed / state.hatchProgress.total;
 			if (state.exerciseConfig.type === 'hatching') {
-				renderHatchFillProgress(ctx, state.exerciseConfig.references[0].params as HatchParams, progress, state.hatchProgress.fillFromLowY, state.hatchProgress.lightTheme);
+				renderHatchFillProgress(
+					ctx,
+					state.exerciseConfig.references[0].params as HatchParams,
+					progress,
+					state.hatchProgress.fillFromLowY,
+					state.hatchProgress.lightTheme,
+				);
 			} else if (state.exerciseConfig.type === 'hatching-advanced') {
-				renderAdvancedFillProgress(ctx, state.exerciseConfig.references[0].params as HatchAdvancedParams, progress, state.hatchProgress.fillFromLowY, state.hatchProgress.lightTheme);
+				renderAdvancedFillProgress(
+					ctx,
+					state.exerciseConfig.references[0].params as HatchAdvancedParams,
+					progress,
+					state.hatchProgress.fillFromLowY,
+					state.hatchProgress.lightTheme,
+				);
 			}
 		}
 		renderGuides(ctx, state.exerciseConfig, state.guideVisibility);
@@ -138,12 +150,7 @@ export function render(
 	}
 }
 
-export function drawStroke(
-	ctx: CanvasRenderingContext2D,
-	stroke: Stroke,
-	color: string,
-	lineWidth: number
-): void {
+export function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke, color: string, lineWidth: number): void {
 	const pts = stroke.smoothedPoints.length > 0 ? stroke.smoothedPoints : stroke.rawPoints;
 	if (pts.length < 2) return;
 
@@ -163,7 +170,7 @@ export function drawPressureStroke(
 	ctx: CanvasRenderingContext2D,
 	stroke: Stroke,
 	color: string,
-	baseWidth: number
+	baseWidth: number,
 ): void {
 	const pts = stroke.smoothedPoints.length > 0 ? stroke.smoothedPoints : stroke.rawPoints;
 	if (pts.length < 2) return;
@@ -192,7 +199,7 @@ function renderOffscreenIndicator(
 	transform: ViewTransform,
 	viewW: number,
 	viewH: number,
-	isLight: boolean
+	isLight: boolean,
 ): void {
 	const wc = getShapeCenter(config);
 	if (!wc) return;

@@ -33,12 +33,7 @@ export interface RectParams {
 }
 
 export interface QuadParams {
-	corners: [
-		{ x: number; y: number },
-		{ x: number; y: number },
-		{ x: number; y: number },
-		{ x: number; y: number },
-	];
+	corners: [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }, { x: number; y: number }];
 }
 
 export interface PerspectiveBoxParams {

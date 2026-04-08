@@ -11,7 +11,7 @@
 		handlePointerDown,
 		handlePointerMove,
 		handlePointerUp,
-		type PointerState
+		type PointerState,
 	} from '$lib/input/pointer';
 	import { render, type RenderState, type FadingLayer, type HatchProgressState } from '$lib/canvas/renderer';
 
@@ -47,7 +47,7 @@
 		onStrokeComplete,
 		onStrokeStart,
 		onStrokeEnd,
-		onPenDetected
+		onPenDetected,
 	}: Props = $props();
 
 	let canvasEl: HTMLCanvasElement;
@@ -95,7 +95,7 @@
 		},
 		getTransform: () => transform,
 		getCenter,
-		toCanvasCoords
+		toCanvasCoords,
 	};
 
 	let penSeen = false;
@@ -173,14 +173,16 @@
 			fadingLayers,
 			bgColor,
 			hatchProgress,
-			reviewing
+			reviewing,
 		};
 		render(ctx, canvasEl, state);
 		ctx.restore();
 		animFrame = requestAnimationFrame(renderLoop);
 	}
 
-	function preventTouch(e: TouchEvent) { e.preventDefault(); }
+	function preventTouch(e: TouchEvent) {
+		e.preventDefault();
+	}
 
 	onMount(() => {
 		ctx = canvasEl.getContext('2d');

@@ -12,7 +12,7 @@
 	const unitLabels: Record<string, string> = {
 		'basic-shapes': 'Basic Shapes',
 		strokes: 'Strokes',
-		perspective: 'Perspective'
+		perspective: 'Perspective',
 	};
 
 	const byUnit = getPluginsByUnit();

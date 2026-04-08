@@ -4,9 +4,27 @@ import type { StrokeScore, ScoredSegment } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
 import { drawPressureStroke } from '$lib/canvas/renderer';
 import { renderPressureHighlights } from '$lib/canvas/highlights';
-import { defineExercise, buildMetricScore, getStrokePoints, strokeChord, angleDiff, type CoordTransform } from './plugin';
+import {
+	defineExercise,
+	buildMetricScore,
+	getStrokePoints,
+	strokeChord,
+	angleDiff,
+	type CoordTransform,
+} from './plugin';
 import { registerExercise } from './registry';
-import { GUIDE_COLOR, HINT_COLOR, drawDot, randomLine, scoreLineAccuracy, highlightLineDivergent, drawTaperedRibbon, lineToPathPoints, projectOntoLine, pressureShapeScore } from './utils';
+import {
+	GUIDE_COLOR,
+	HINT_COLOR,
+	drawDot,
+	randomLine,
+	scoreLineAccuracy,
+	highlightLineDivergent,
+	drawTaperedRibbon,
+	lineToPathPoints,
+	projectOntoLine,
+	pressureShapeScore,
+} from './utils';
 
 const MAX_RIBBON_WIDTH = 10;
 
@@ -78,10 +96,12 @@ export const taperPlugin = defineExercise({
 
 		const taperIn = Math.random() < 0.5;
 		const params: TaperParams = {
-			x1: p1.x, y1: p1.y,
-			x2: p2.x, y2: p2.y,
+			x1: p1.x,
+			y1: p1.y,
+			x2: p2.x,
+			y2: p2.y,
 			startPressure: taperIn ? 0.8 : 0.1,
-			endPressure: taperIn ? 0.1 : 0.8
+			endPressure: taperIn ? 0.1 : 0.8,
 		};
 		return {
 			unit: 'strokes',
@@ -89,7 +109,7 @@ export const taperPlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'taper', params }],
-			availableModes: ['tracing']
+			availableModes: ['tracing'],
 		};
 	},
 
@@ -136,7 +156,13 @@ export const taperPlugin = defineExercise({
 
 	computeShapeScore: pressureShapeScore,
 
-	isStrokeRelevant(stroke: Stroke, reference: ReferenceShape, _canvasW: number, _canvasH: number, _mode: ExerciseMode): boolean {
+	isStrokeRelevant(
+		stroke: Stroke,
+		reference: ReferenceShape,
+		_canvasW: number,
+		_canvasH: number,
+		_mode: ExerciseMode,
+	): boolean {
 		const pts = getStrokePoints(stroke);
 		if (pts.length < 2) return false;
 		const chord = strokeChord(pts);
@@ -172,9 +198,9 @@ export const taperPlugin = defineExercise({
 			minX: Math.min(p.x1, p.x2) - margin,
 			minY: Math.min(p.y1, p.y2) - margin,
 			maxX: Math.max(p.x1, p.x2) + margin,
-			maxY: Math.max(p.y1, p.y2) + margin
+			maxY: Math.max(p.y1, p.y2) + margin,
 		};
-	}
+	},
 });
 
 registerExercise(taperPlugin);

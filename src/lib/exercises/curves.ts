@@ -62,10 +62,14 @@ export const curvePlugin = defineExercise({
 		const c2 = toWorld ? toWorld(raw.cp2x, raw.cp2y) : { x: raw.cp2x, y: raw.cp2y };
 
 		const params: CurveParams = {
-			x1: p1.x, y1: p1.y,
-			x2: p2.x, y2: p2.y,
-			cp1x: c1.x, cp1y: c1.y,
-			cp2x: c2.x, cp2y: c2.y
+			x1: p1.x,
+			y1: p1.y,
+			x2: p2.x,
+			y2: p2.y,
+			cp1x: c1.x,
+			cp1y: c1.y,
+			cp2x: c2.x,
+			cp2y: c2.y,
 		};
 
 		return {
@@ -74,7 +78,7 @@ export const curvePlugin = defineExercise({
 			mode,
 			strokeCount: 1,
 			references: [{ type: 'curve', params }],
-			availableModes: ['tracing']
+			availableModes: ['tracing'],
 		};
 	},
 
@@ -111,7 +115,13 @@ export const curvePlugin = defineExercise({
 		});
 	},
 
-	isStrokeRelevant(stroke: Stroke, reference: ReferenceShape, canvasW: number, _canvasH: number, _mode: ExerciseMode): boolean {
+	isStrokeRelevant(
+		stroke: Stroke,
+		reference: ReferenceShape,
+		canvasW: number,
+		_canvasH: number,
+		_mode: ExerciseMode,
+	): boolean {
 		const pts = getStrokePoints(stroke);
 		if (pts.length < 2) return false;
 
@@ -133,7 +143,7 @@ export const curvePlugin = defineExercise({
 		const p = params as unknown as CurveParams;
 		return {
 			x: (p.x1 + p.x2 + p.cp1x + p.cp2x) / 4,
-			y: (p.y1 + p.y2 + p.cp1y + p.cp2y) / 4
+			y: (p.y1 + p.y2 + p.cp1y + p.cp2y) / 4,
 		};
 	},
 
@@ -146,9 +156,9 @@ export const curvePlugin = defineExercise({
 			minX: Math.min(...xs) - margin,
 			minY: Math.min(...ys) - margin,
 			maxX: Math.max(...xs) + margin,
-			maxY: Math.max(...ys) + margin
+			maxY: Math.max(...ys) + margin,
 		};
-	}
+	},
 });
 
 registerExercise(curvePlugin);

@@ -11,7 +11,7 @@ export function outlineCornersLocal(
 	halfW: number,
 	halfH: number,
 	skew: number,
-	halfWBottom: number
+	halfWBottom: number,
 ): { x: number; y: number }[] {
 	switch (kind) {
 		case 'rect':
@@ -19,21 +19,21 @@ export function outlineCornersLocal(
 				{ x: -halfW, y: -halfH },
 				{ x: halfW, y: -halfH },
 				{ x: halfW, y: halfH },
-				{ x: -halfW, y: halfH }
+				{ x: -halfW, y: halfH },
 			];
 		case 'parallelogram':
 			return [
 				{ x: -halfW, y: -halfH },
 				{ x: halfW, y: -halfH },
 				{ x: halfW + skew, y: halfH },
-				{ x: -halfW + skew, y: halfH }
+				{ x: -halfW + skew, y: halfH },
 			];
 		case 'trapezoid':
 			return [
 				{ x: -halfW, y: -halfH },
 				{ x: halfW, y: -halfH },
 				{ x: halfWBottom, y: halfH },
-				{ x: -halfWBottom, y: halfH }
+				{ x: -halfWBottom, y: halfH },
 			];
 	}
 }
@@ -44,7 +44,7 @@ export function localToWorld(
 	cx: number,
 	cy: number,
 	cos: number,
-	sin: number
+	sin: number,
 ): { x: number; y: number } {
 	return { x: cx + cos * lx - sin * ly, y: cy + sin * lx + cos * ly };
 }
@@ -56,7 +56,7 @@ export function xExtentAtLocalY(
 	halfW: number,
 	halfH: number,
 	skew: number,
-	halfWBottom: number
+	halfWBottom: number,
 ): { x0: number; x1: number } {
 	const denom = 2 * halfH;
 	const t = denom > 1e-6 ? (localY + halfH) / denom : 0;
@@ -175,7 +175,7 @@ function lineEdgeIntersection(
 	ax: number,
 	ay: number,
 	bx: number,
-	by: number
+	by: number,
 ): { x: number; y: number } | null {
 	const dx = bx - ax;
 	const dy = by - ay;
@@ -195,7 +195,7 @@ export function chordInConvexPolygon(
 	poly: { x: number; y: number }[],
 	d: { x: number; y: number },
 	n: { x: number; y: number },
-	s: number
+	s: number,
 ): LineParams | null {
 	const hits: { x: number; y: number }[] = [];
 	const m = poly.length;
@@ -221,7 +221,7 @@ export function chordInConvexPolygon(
 export function projectRangeOnNormal(
 	poly: { x: number; y: number }[],
 	nx: number,
-	ny: number
+	ny: number,
 ): { min: number; max: number } {
 	let min = Infinity;
 	let max = -Infinity;
@@ -234,11 +234,7 @@ export function projectRangeOnNormal(
 }
 
 /** Parallel chords inside axis-aligned ellipse (before world transform). */
-export function ellipseHorizontalChords(
-	a: number,
-	b: number,
-	lineCount: number
-): LineParams[] {
+export function ellipseHorizontalChords(a: number, b: number, lineCount: number): LineParams[] {
 	const lines: LineParams[] = [];
 	if (lineCount < 1) return lines;
 	const eps = 0.04 * Math.min(a, b);
@@ -254,13 +250,7 @@ export function ellipseHorizontalChords(
 	return lines;
 }
 
-export function transformLine(
-	line: LineParams,
-	cx: number,
-	cy: number,
-	cos: number,
-	sin: number
-): LineParams {
+export function transformLine(line: LineParams, cx: number, cy: number, cos: number, sin: number): LineParams {
 	const t = (x: number, y: number) => localToWorld(x, y, cx, cy, cos, sin);
 	const p1 = t(line.x1, line.y1);
 	const p2 = t(line.x2, line.y2);

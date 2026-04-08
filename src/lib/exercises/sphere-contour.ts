@@ -36,7 +36,10 @@ function drawCrosshair(ctx: CanvasRenderingContext2D, x: number, y: number, size
 
 /** Projected ellipse geometry for a contour circle (great or small) on the sphere. */
 function contourEllipse(p: SphereContourParams): {
-	ecx: number; ecy: number; rx: number; ry: number;
+	ecx: number;
+	ecy: number;
+	rx: number;
+	ry: number;
 } {
 	const rSmall = Math.sqrt(p.r * p.r - p.offset * p.offset);
 	const rx = rSmall;
@@ -72,7 +75,12 @@ function scoreContourAccuracy(points: StrokePoint[], params: SphereContourParams
 }
 
 function ellipsePoint(
-	cx: number, cy: number, rx: number, ry: number, rotation: number, t: number,
+	cx: number,
+	cy: number,
+	rx: number,
+	ry: number,
+	rotation: number,
+	t: number,
 ): { x: number; y: number } {
 	const cosR = Math.cos(rotation);
 	const sinR = Math.sin(rotation);
@@ -86,7 +94,8 @@ export const sphereContourPlugin = defineExercise({
 	unit: 'basic-shapes',
 	label: 'Sphere Contours',
 	icon: '◑',
-	description: 'Draw cross-contour lines around a sphere. Train your sense of 3D form with confident, wraparound strokes.',
+	description:
+		'Draw cross-contour lines around a sphere. Train your sense of 3D form with confident, wraparound strokes.',
 	availableModes: ['tracing', 'challenge'],
 	requiredStrokes: 1,
 	defaultCount: 15,
@@ -116,8 +125,14 @@ export const sphereContourPlugin = defineExercise({
 		const hintSpan = Math.PI / 3 + Math.random() * (Math.PI / 6);
 
 		const params: SphereContourParams = {
-			cx: center.x, cy: center.y, r,
-			tilt, rotation, offset, hintStart, hintSpan,
+			cx: center.x,
+			cy: center.y,
+			r,
+			tilt,
+			rotation,
+			offset,
+			hintStart,
+			hintSpan,
 		};
 
 		return {

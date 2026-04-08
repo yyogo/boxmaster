@@ -14,7 +14,11 @@ export interface MirrorParams {
 	mirroredPoints: { x: number; y: number }[];
 }
 
-function reflectPoint(p: { x: number; y: number }, axis: 'vertical' | 'horizontal', pos: number): { x: number; y: number } {
+function reflectPoint(
+	p: { x: number; y: number },
+	axis: 'vertical' | 'horizontal',
+	pos: number,
+): { x: number; y: number } {
 	if (axis === 'vertical') return { x: 2 * pos - p.x, y: p.y };
 	return { x: p.x, y: 2 * pos - p.y };
 }
@@ -50,22 +54,65 @@ function sampleWave(n = 24): Pt[] {
 
 const SHAPE_TEMPLATES: Pt[][] = [
 	// Straight lines
-	[{ x: 0, y: 0.5 }, { x: 1, y: 0.5 }],
-	[{ x: 0, y: 1 }, { x: 1, y: 0 }],
-	[{ x: 0, y: 0 }, { x: 1, y: 1 }],
+	[
+		{ x: 0, y: 0.5 },
+		{ x: 1, y: 0.5 },
+	],
+	[
+		{ x: 0, y: 1 },
+		{ x: 1, y: 0 },
+	],
+	[
+		{ x: 0, y: 0 },
+		{ x: 1, y: 1 },
+	],
 	// L-shapes
-	[{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }],
-	[{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }],
+	[
+		{ x: 0, y: 0 },
+		{ x: 0, y: 1 },
+		{ x: 1, y: 1 },
+	],
+	[
+		{ x: 0, y: 0 },
+		{ x: 1, y: 0 },
+		{ x: 1, y: 1 },
+	],
 	// V / chevron
-	[{ x: 0, y: 0 }, { x: 0.5, y: 1 }, { x: 1, y: 0 }],
-	[{ x: 0, y: 1 }, { x: 0.5, y: 0 }, { x: 1, y: 1 }],
+	[
+		{ x: 0, y: 0 },
+		{ x: 0.5, y: 1 },
+		{ x: 1, y: 0 },
+	],
+	[
+		{ x: 0, y: 1 },
+		{ x: 0.5, y: 0 },
+		{ x: 1, y: 1 },
+	],
 	// Hook
-	[{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 0.6 }],
-	[{ x: 0, y: 0.6 }, { x: 0, y: 0 }, { x: 1, y: 0 }],
+	[
+		{ x: 0, y: 0 },
+		{ x: 1, y: 0 },
+		{ x: 1, y: 0.6 },
+	],
+	[
+		{ x: 0, y: 0.6 },
+		{ x: 0, y: 0 },
+		{ x: 1, y: 0 },
+	],
 	// Step / Z
-	[{ x: 0, y: 0 }, { x: 0.5, y: 0 }, { x: 0.5, y: 1 }, { x: 1, y: 1 }],
+	[
+		{ x: 0, y: 0 },
+		{ x: 0.5, y: 0 },
+		{ x: 0.5, y: 1 },
+		{ x: 1, y: 1 },
+	],
 	// Bracket
-	[{ x: 0.3, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 1 }, { x: 0.3, y: 1 }],
+	[
+		{ x: 0.3, y: 0 },
+		{ x: 0, y: 0 },
+		{ x: 0, y: 1 },
+		{ x: 0.3, y: 1 },
+	],
 	// Arcs
 	sampleArc(0.5, 1, 0.5, -Math.PI, Math.PI * 0.5),
 	sampleArc(0, 0.5, 0.5, -Math.PI / 2, Math.PI),
@@ -80,7 +127,7 @@ const SHAPE_TEMPLATES: Pt[][] = [
 
 function pickTemplate(): Pt[] {
 	const tpl = SHAPE_TEMPLATES[Math.floor(Math.random() * SHAPE_TEMPLATES.length)];
-	const pts = tpl.map(p => ({ ...p }));
+	const pts = tpl.map((p) => ({ ...p }));
 	if (Math.random() < 0.5) for (const p of pts) p.x = 1 - p.x;
 	if (Math.random() < 0.5) for (const p of pts) p.y = 1 - p.y;
 	return pts;
@@ -108,12 +155,12 @@ function generateMirrorShape(canvasW: number, canvasH: number): MirrorParams {
 		oy = margin + Math.random() * Math.max(0, spanH - shapeSize);
 	}
 
-	const originalPoints = template.map(p => ({
+	const originalPoints = template.map((p) => ({
 		x: ox + p.x * shapeSize,
 		y: oy + p.y * shapeSize,
 	}));
 
-	const mirroredPoints = originalPoints.map(p => reflectPoint(p, axis, axisPosition));
+	const mirroredPoints = originalPoints.map((p) => reflectPoint(p, axis, axisPosition));
 	return { axis, axisPosition, originalPoints, mirroredPoints };
 }
 
@@ -121,8 +168,10 @@ function pointToPolylineDist(px: number, py: number, polyline: { x: number; y: n
 	let minDist = Infinity;
 	for (let i = 0; i < polyline.length - 1; i++) {
 		const d = pointToSegmentDist(px, py, {
-			x1: polyline[i].x, y1: polyline[i].y,
-			x2: polyline[i + 1].x, y2: polyline[i + 1].y,
+			x1: polyline[i].x,
+			y1: polyline[i].y,
+			x2: polyline[i + 1].x,
+			y2: polyline[i + 1].y,
 		});
 		if (d < minDist) minDist = d;
 	}
@@ -223,7 +272,13 @@ export const mirrorPlugin = defineExercise({
 		// Tracing: show mirrored endpoint hints so the user knows where to draw
 		if (visibility === 'full' && p.mirroredPoints.length >= 2) {
 			drawDot(ctx, p.mirroredPoints[0].x, p.mirroredPoints[0].y, 4, HINT_COLOR);
-			drawDot(ctx, p.mirroredPoints[p.mirroredPoints.length - 1].x, p.mirroredPoints[p.mirroredPoints.length - 1].y, 4, HINT_COLOR);
+			drawDot(
+				ctx,
+				p.mirroredPoints[p.mirroredPoints.length - 1].x,
+				p.mirroredPoints[p.mirroredPoints.length - 1].y,
+				4,
+				HINT_COLOR,
+			);
 		}
 
 		// Challenge: only the original shape + axis are visible (no mirrored hints)
@@ -255,9 +310,9 @@ export const mirrorPlugin = defineExercise({
 		const origCy = p.originalPoints.reduce((s, pt) => s + pt.y, 0) / p.originalPoints.length;
 
 		if (p.axis === 'vertical') {
-			return (cx > p.axisPosition) !== (origCx > p.axisPosition) || Math.abs(cx - p.axisPosition) < 20;
+			return cx > p.axisPosition !== origCx > p.axisPosition || Math.abs(cx - p.axisPosition) < 20;
 		}
-		return (cy > p.axisPosition) !== (origCy > p.axisPosition) || Math.abs(cy - p.axisPosition) < 20;
+		return cy > p.axisPosition !== origCy > p.axisPosition || Math.abs(cy - p.axisPosition) < 20;
 	},
 
 	getCenter(params: Record<string, unknown>) {
@@ -272,8 +327,8 @@ export const mirrorPlugin = defineExercise({
 	getBounds(params: Record<string, unknown>) {
 		const p = params as unknown as MirrorParams;
 		const all = [...p.originalPoints, ...p.mirroredPoints];
-		const xs = all.map(pt => pt.x);
-		const ys = all.map(pt => pt.y);
+		const xs = all.map((pt) => pt.x);
+		const ys = all.map((pt) => pt.y);
 		return {
 			minX: Math.min(...xs) - 10,
 			minY: Math.min(...ys) - 10,

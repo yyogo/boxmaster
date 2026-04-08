@@ -16,7 +16,11 @@ export function drawDot(ctx: CanvasRenderingContext2D, x: number, y: number, r: 
 }
 
 export function randomLine(
-	canvasW: number, canvasH: number, diagonal: number, margin: number, lenRange = 0.65
+	canvasW: number,
+	canvasH: number,
+	diagonal: number,
+	margin: number,
+	lenRange = 0.65,
 ): { x1: number; y1: number; x2: number; y2: number } {
 	const targetLen = diagonal * (0.15 + Math.random() * lenRange);
 	const angle = Math.random() * Math.PI * 2;
@@ -88,7 +92,7 @@ export function randomCurve(canvasW: number, canvasH: number, diagonal: number, 
 
 export function scoreLineAccuracy(
 	points: StrokePoint[],
-	line: { x1: number; y1: number; x2: number; y2: number }
+	line: { x1: number; y1: number; x2: number; y2: number },
 ): number {
 	const len = Math.sqrt((line.x2 - line.x1) ** 2 + (line.y2 - line.y1) ** 2);
 	if (len === 0) return 0;
@@ -100,7 +104,7 @@ export function scoreLineAccuracy(
 
 export function highlightLineDivergent(
 	points: StrokePoint[],
-	line: { x1: number; y1: number; x2: number; y2: number }
+	line: { x1: number; y1: number; x2: number; y2: number },
 ): ScoredSegment[] {
 	const segments: ScoredSegment[] = [];
 	const windowSize = 15;
@@ -130,8 +134,12 @@ export function highlightLineDivergent(
 
 export function drawRibbon(
 	ctx: CanvasRenderingContext2D,
-	x1: number, y1: number, x2: number, y2: number,
-	width: number, color: string
+	x1: number,
+	y1: number,
+	x2: number,
+	y2: number,
+	width: number,
+	color: string,
 ): void {
 	const len = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
 	if (len === 0) return;
@@ -152,7 +160,9 @@ export function drawRibbon(
 export function drawTaperedRibbon(
 	ctx: CanvasRenderingContext2D,
 	pathPoints: { x: number; y: number }[],
-	startWidth: number, endWidth: number, color: string
+	startWidth: number,
+	endWidth: number,
+	color: string,
 ): void {
 	if (pathPoints.length < 2) return;
 
@@ -198,9 +208,7 @@ export function drawTaperedRibbon(
 	ctx.fill();
 }
 
-export function lineToPathPoints(
-	x1: number, y1: number, x2: number, y2: number, n = 40
-): { x: number; y: number }[] {
+export function lineToPathPoints(x1: number, y1: number, x2: number, y2: number, n = 40): { x: number; y: number }[] {
 	const pts: { x: number; y: number }[] = [];
 	for (let i = 0; i <= n; i++) {
 		const t = i / n;
@@ -211,7 +219,7 @@ export function lineToPathPoints(
 
 export function projectOntoLine(
 	p: { x: number; y: number },
-	line: { x1: number; y1: number; x2: number; y2: number }
+	line: { x1: number; y1: number; x2: number; y2: number },
 ): number {
 	const dx = line.x2 - line.x1;
 	const dy = line.y2 - line.y1;
@@ -222,7 +230,5 @@ export function projectOntoLine(
 
 export function pressureShapeScore(strokeScores: StrokeScore[]): number {
 	if (strokeScores.length === 0) return 0;
-	return Math.round(
-		strokeScores.reduce((s, sc) => s + sc.composite, 0) / strokeScores.length,
-	);
+	return Math.round(strokeScores.reduce((s, sc) => s + sc.composite, 0) / strokeScores.length);
 }

@@ -1,46 +1,19 @@
-import type {
-	ExerciseConfig,
-	ExerciseMode,
-	LineParams,
-	ThreePointBoxParams,
-	ReferenceShape,
-} from './types';
+import type { ExerciseConfig, ExerciseMode, LineParams, ThreePointBoxParams, ReferenceShape } from './types';
 import type { StrokePoint, Stroke } from '$lib/input/stroke';
 import type { StrokeScore } from '$lib/scoring/types';
 import type { GuideVisibility } from '$lib/canvas/guides';
 import { pointToSegmentDist } from '$lib/scoring/geometry';
-import {
-	defineExercise,
-	buildMetricScore,
-	getStrokePoints,
-	strokeChord,
-} from './plugin';
+import { defineExercise, buildMetricScore, getStrokePoints, strokeChord } from './plugin';
 import { registerExercise } from './registry';
 import { drawDot, scoreLineAccuracy, highlightLineDivergent } from './utils';
 
 type Pt = { x: number; y: number };
 type TaggedEdge = LineParams & { vpIndex: 0 | 1 | 2 };
 
-const VP_COLORS = [
-	'rgba(255, 120, 80, 0.9)',
-	'rgba(80, 200, 255, 0.9)',
-	'rgba(160, 255, 80, 0.9)',
-];
-const VP_EXT_COLORS = [
-	'rgba(255, 120, 80, 0.4)',
-	'rgba(80, 200, 255, 0.4)',
-	'rgba(160, 255, 80, 0.4)',
-];
-const VP_ARC_COLORS = [
-	'rgba(255, 120, 80, 0.7)',
-	'rgba(80, 200, 255, 0.7)',
-	'rgba(160, 255, 80, 0.7)',
-];
-const IDEAL_LINE_COLORS = [
-	'rgba(255, 120, 80, 0.25)',
-	'rgba(80, 200, 255, 0.25)',
-	'rgba(160, 255, 80, 0.25)',
-];
+const VP_COLORS = ['rgba(255, 120, 80, 0.9)', 'rgba(80, 200, 255, 0.9)', 'rgba(160, 255, 80, 0.9)'];
+const VP_EXT_COLORS = ['rgba(255, 120, 80, 0.4)', 'rgba(80, 200, 255, 0.4)', 'rgba(160, 255, 80, 0.4)'];
+const VP_ARC_COLORS = ['rgba(255, 120, 80, 0.7)', 'rgba(80, 200, 255, 0.7)', 'rgba(160, 255, 80, 0.7)'];
+const IDEAL_LINE_COLORS = ['rgba(255, 120, 80, 0.25)', 'rgba(80, 200, 255, 0.25)', 'rgba(160, 255, 80, 0.25)'];
 const GIVEN_EDGE_COLOR = 'rgba(180, 220, 255, 0.8)';
 const GUIDE_COLOR_FAINT = 'rgba(130, 185, 255, 0.35)';
 const HORIZON_COLOR = 'rgba(180, 180, 180, 0.25)';
@@ -61,13 +34,7 @@ function lineLineIntersect(p1: Pt, p2: Pt, p3: Pt, p4: Pt): Pt | null {
 	return { x: p1.x + t * d1x, y: p1.y + t * d1y };
 }
 
-function drawCrosshair(
-	ctx: CanvasRenderingContext2D,
-	x: number,
-	y: number,
-	size: number,
-	color: string,
-) {
+function drawCrosshair(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) {
 	ctx.beginPath();
 	ctx.moveTo(x - size, y);
 	ctx.lineTo(x + size, y);
@@ -78,13 +45,7 @@ function drawCrosshair(
 	ctx.stroke();
 }
 
-function rayCanvasExtent(
-	origin: Pt,
-	dx: number,
-	dy: number,
-	canvasW: number,
-	canvasH: number,
-): number {
+function rayCanvasExtent(origin: Pt, dx: number, dy: number, canvasW: number, canvasH: number): number {
 	let tMax = Infinity;
 	if (dx > 1e-9) tMax = Math.min(tMax, (canvasW - origin.x) / dx);
 	else if (dx < -1e-9) tMax = Math.min(tMax, -origin.x / dx);
@@ -93,10 +54,7 @@ function rayCanvasExtent(
 	return Math.max(0, tMax);
 }
 
-function buildExpectedEdges(
-	c1: Pt, c2: Pt, c3: Pt,
-	c4: Pt, c5: Pt, c6: Pt, c7: Pt,
-): TaggedEdge[] {
+function buildExpectedEdges(c1: Pt, c2: Pt, c3: Pt, c4: Pt, c5: Pt, c6: Pt, c7: Pt): TaggedEdge[] {
 	return [
 		{ x1: c2.x, y1: c2.y, x2: c4.x, y2: c4.y, vpIndex: 0 },
 		{ x1: c3.x, y1: c3.y, x2: c5.x, y2: c5.y, vpIndex: 0 },
@@ -110,10 +68,7 @@ function buildExpectedEdges(
 	];
 }
 
-function computeBoxVertices(
-	endpoints: Pt[],
-	vps: [Pt, Pt, Pt],
-): { c4: Pt; c5: Pt; c6: Pt; c7: Pt } | null {
+function computeBoxVertices(endpoints: Pt[], vps: [Pt, Pt, Pt]): { c4: Pt; c5: Pt; c6: Pt; c7: Pt } | null {
 	const [c1, c2, c3] = endpoints;
 	const c4 = lineLineIntersect(c1, vps[1], c2, vps[0]);
 	const c5 = lineLineIntersect(c1, vps[2], c3, vps[0]);
@@ -126,10 +81,7 @@ function computeBoxVertices(
 
 // --- Generation (far VPs) ---
 
-function generateShallowBox(
-	canvasW: number,
-	canvasH: number,
-): ThreePointBoxParams | null {
+function generateShallowBox(canvasW: number, canvasH: number): ThreePointBoxParams | null {
 	const minDim = Math.min(canvasW, canvasH);
 	const margin = minDim * 0.15;
 
@@ -142,11 +94,7 @@ function generateShallowBox(
 	const u2 = Math.random() * (Math.PI / 2);
 	const lo = Math.min(u1, u2);
 	const hi = Math.max(u1, u2);
-	const gaps = [
-		lo + Math.PI / 2,
-		hi - lo + Math.PI / 2,
-		Math.PI / 2 - hi + Math.PI / 2,
-	];
+	const gaps = [lo + Math.PI / 2, hi - lo + Math.PI / 2, Math.PI / 2 - hi + Math.PI / 2];
 
 	const theta0 = Math.random() * Math.PI * 2;
 	const thetas = [theta0, theta0 + gaps[0], theta0 + gaps[0] + gaps[1]];
@@ -177,24 +125,14 @@ function generateShallowBox(
 	const { c4, c5, c6, c7 } = verts;
 
 	for (const pt of [c4, c5, c6, c7]) {
-		if (
-			pt.x < -canvasW * 0.3 ||
-			pt.x > canvasW * 1.3 ||
-			pt.y < -canvasH * 0.3 ||
-			pt.y > canvasH * 1.3
-		)
-			return null;
+		if (pt.x < -canvasW * 0.3 || pt.x > canvasW * 1.3 || pt.y < -canvasH * 0.3 || pt.y > canvasH * 1.3) return null;
 	}
 
-	const expectedEdges = buildExpectedEdges(
-		endpoints[0], endpoints[1], endpoints[2],
-		c4, c5, c6, c7,
-	);
+	const expectedEdges = buildExpectedEdges(endpoints[0], endpoints[1], endpoints[2], c4, c5, c6, c7);
 
 	const minEdgeLen = minDim * 0.04;
 	for (const e of expectedEdges) {
-		if (Math.sqrt((e.x2 - e.x1) ** 2 + (e.y2 - e.y1) ** 2) < minEdgeLen)
-			return null;
+		if (Math.sqrt((e.x2 - e.x1) ** 2 + (e.y2 - e.y1) ** 2) < minEdgeLen) return null;
 	}
 
 	return {
@@ -209,10 +147,7 @@ function generateShallowBox(
 	};
 }
 
-function generateFallbackShallowBox(
-	canvasW: number,
-	canvasH: number,
-): ThreePointBoxParams {
+function generateFallbackShallowBox(canvasW: number, canvasH: number): ThreePointBoxParams {
 	const cx = canvasW / 2;
 	const cy = canvasH / 2;
 	const minDim = Math.min(canvasW, canvasH);
@@ -240,19 +175,13 @@ function generateFallbackShallowBox(
 			{ x1: c0.x, y1: c0.y, x2: endpoints[1].x, y2: endpoints[1].y },
 			{ x1: c0.x, y1: c0.y, x2: endpoints[2].x, y2: endpoints[2].y },
 		],
-		expectedEdges: buildExpectedEdges(
-			endpoints[0], endpoints[1], endpoints[2],
-			c4, c5, c6, c7,
-		),
+		expectedEdges: buildExpectedEdges(endpoints[0], endpoints[1], endpoints[2], c4, c5, c6, c7),
 	};
 }
 
 // --- Stroke matching ---
 
-function strokeFollowsExpectedEdge(
-	pts: { x: number; y: number }[],
-	expected: TaggedEdge[],
-): boolean {
+function strokeFollowsExpectedEdge(pts: { x: number; y: number }[], expected: TaggedEdge[]): boolean {
 	if (pts.length < 2) return false;
 	const chord = strokeChord(pts);
 	const sampleStep = Math.max(1, Math.floor(pts.length / 10));
@@ -271,10 +200,7 @@ function strokeFollowsExpectedEdge(
 	return false;
 }
 
-function matchStrokeToEdge(
-	pts: { x: number; y: number }[],
-	edges: TaggedEdge[],
-): TaggedEdge | null {
+function matchStrokeToEdge(pts: { x: number; y: number }[], edges: TaggedEdge[]): TaggedEdge | null {
 	if (pts.length < 2 || edges.length === 0) return null;
 	const mid = {
 		x: (pts[0].x + pts[pts.length - 1].x) / 2,
@@ -383,11 +309,7 @@ export const shallowBoxesPlugin = defineExercise({
 	instructions:
 		'Draw all 9 remaining edges. The VPs are very far away — edges should converge subtly. Press Done to see how well your lines converge.',
 
-	generate(
-		mode: ExerciseMode,
-		canvasW: number,
-		canvasH: number,
-	): ExerciseConfig {
+	generate(mode: ExerciseMode, canvasW: number, canvasH: number): ExerciseConfig {
 		let params: ThreePointBoxParams | null = null;
 		for (let attempt = 0; attempt < 100; attempt++) {
 			params = generateShallowBox(canvasW, canvasH);
@@ -405,10 +327,7 @@ export const shallowBoxesPlugin = defineExercise({
 		};
 	},
 
-	renderScaffold(
-		ctx: CanvasRenderingContext2D,
-		params: Record<string, unknown>,
-	) {
+	renderScaffold(ctx: CanvasRenderingContext2D, params: Record<string, unknown>) {
 		const p = params as unknown as ThreePointBoxParams;
 		// Faint horizon line connecting VPs (as a visual reference)
 		const vps = p.vps;
@@ -425,11 +344,7 @@ export const shallowBoxesPlugin = defineExercise({
 		ctx.setLineDash([]);
 	},
 
-	renderGuide(
-		ctx: CanvasRenderingContext2D,
-		params: Record<string, unknown>,
-		visibility: GuideVisibility,
-	) {
+	renderGuide(ctx: CanvasRenderingContext2D, params: Record<string, unknown>, visibility: GuideVisibility) {
 		const p = params as unknown as ThreePointBoxParams;
 
 		for (const edge of p.yEdges) {
@@ -459,11 +374,7 @@ export const shallowBoxesPlugin = defineExercise({
 		}
 	},
 
-	renderReview(
-		ctx: CanvasRenderingContext2D,
-		params: Record<string, unknown>,
-		strokes: Stroke[],
-	) {
+	renderReview(ctx: CanvasRenderingContext2D, params: Record<string, unknown>, strokes: Stroke[]) {
 		const p = params as unknown as ThreePointBoxParams;
 
 		// 1. Match strokes to edges and group by VP
@@ -479,11 +390,7 @@ export const shallowBoxesPlugin = defineExercise({
 		}
 
 		// 2. Infer VP per group
-		const inferredVPs: (Pt | null)[] = [
-			inferGroupVP(groups[0]),
-			inferGroupVP(groups[1]),
-			inferGroupVP(groups[2]),
-		];
+		const inferredVPs: (Pt | null)[] = [inferGroupVP(groups[0]), inferGroupVP(groups[1]), inferGroupVP(groups[2])];
 
 		// 3. Draw per-stroke visualization
 		for (const sd of allDirs) {
@@ -494,14 +401,8 @@ export const shallowBoxesPlugin = defineExercise({
 				const dirX = sd.dx / sd.len;
 				const dirY = sd.dy / sd.len;
 				ctx.beginPath();
-				ctx.moveTo(
-					sd.start.x - dirX * EXTENSION_LEN,
-					sd.start.y - dirY * EXTENSION_LEN,
-				);
-				ctx.lineTo(
-					sd.end.x + dirX * EXTENSION_LEN,
-					sd.end.y + dirY * EXTENSION_LEN,
-				);
+				ctx.moveTo(sd.start.x - dirX * EXTENSION_LEN, sd.start.y - dirY * EXTENSION_LEN);
+				ctx.lineTo(sd.end.x + dirX * EXTENSION_LEN, sd.end.y + dirY * EXTENSION_LEN);
 				ctx.strokeStyle = VP_EXT_COLORS[vpIdx];
 				ctx.lineWidth = 1;
 				ctx.setLineDash([8, 6]);
@@ -520,10 +421,7 @@ export const shallowBoxesPlugin = defineExercise({
 			const sDirY = Math.sin(strokeAngle);
 			ctx.beginPath();
 			ctx.moveTo(origin.x, origin.y);
-			ctx.lineTo(
-				origin.x + sDirX * EXTENSION_LEN,
-				origin.y + sDirY * EXTENSION_LEN,
-			);
+			ctx.lineTo(origin.x + sDirX * EXTENSION_LEN, origin.y + sDirY * EXTENSION_LEN);
 			ctx.strokeStyle = VP_EXT_COLORS[vpIdx];
 			ctx.lineWidth = 1;
 			ctx.setLineDash([8, 6]);
@@ -535,10 +433,7 @@ export const shallowBoxesPlugin = defineExercise({
 			const iDirY = Math.sin(idealAngle);
 			ctx.beginPath();
 			ctx.moveTo(origin.x, origin.y);
-			ctx.lineTo(
-				origin.x + iDirX * EXTENSION_LEN,
-				origin.y + iDirY * EXTENSION_LEN,
-			);
+			ctx.lineTo(origin.x + iDirX * EXTENSION_LEN, origin.y + iDirY * EXTENSION_LEN);
 			ctx.strokeStyle = IDEAL_LINE_COLORS[vpIdx];
 			ctx.lineWidth = 1;
 			ctx.setLineDash([4, 8]);
@@ -574,7 +469,7 @@ export const shallowBoxesPlugin = defineExercise({
 				const labelR = ARC_RADIUS + 14;
 				const lx = origin.x + Math.cos(midAngle) * labelR;
 				const ly = origin.y + Math.sin(midAngle) * labelR;
-				const degText = `${(absAngle * 180 / Math.PI).toFixed(1)}°`;
+				const degText = `${((absAngle * 180) / Math.PI).toFixed(1)}°`;
 
 				ctx.font = '11px system-ui, sans-serif';
 				ctx.fillStyle = VP_ARC_COLORS[vpIdx];
@@ -594,11 +489,7 @@ export const shallowBoxesPlugin = defineExercise({
 		}
 	},
 
-	onReviewStroke(
-		newStroke: Stroke,
-		existingStrokes: Stroke[],
-		reference: ReferenceShape,
-	): Stroke[] {
+	onReviewStroke(newStroke: Stroke, existingStrokes: Stroke[], reference: ReferenceShape): Stroke[] {
 		const p = reference.params as unknown as ThreePointBoxParams;
 		const newPts = getStrokePoints(newStroke);
 		const newEdge = matchStrokeToEdge(newPts, p.expectedEdges);
@@ -607,9 +498,14 @@ export const shallowBoxesPlugin = defineExercise({
 		const replaceIdx = existingStrokes.findIndex((s) => {
 			const pts = getStrokePoints(s);
 			const edge = matchStrokeToEdge(pts, p.expectedEdges);
-			return edge && edge.vpIndex === newEdge.vpIndex &&
-				edge.x1 === newEdge.x1 && edge.y1 === newEdge.y1 &&
-				edge.x2 === newEdge.x2 && edge.y2 === newEdge.y2;
+			return (
+				edge &&
+				edge.vpIndex === newEdge.vpIndex &&
+				edge.x1 === newEdge.x1 &&
+				edge.y1 === newEdge.y1 &&
+				edge.x2 === newEdge.x2 &&
+				edge.y2 === newEdge.y2
+			);
 		});
 
 		if (replaceIdx >= 0) {
@@ -620,33 +516,23 @@ export const shallowBoxesPlugin = defineExercise({
 		return [...existingStrokes, newStroke];
 	},
 
-	scoreStrokesForRound(
-		strokes: Stroke[],
-		reference: ReferenceShape,
-	): StrokeScore[] {
+	scoreStrokesForRound(strokes: Stroke[], reference: ReferenceShape): StrokeScore[] {
 		const p = reference.params as unknown as ThreePointBoxParams;
 
 		// Build stroke directions and group by VP
-		const dirs: (StrokeDir | null)[] = strokes.map((s) =>
-			getStrokeDir(s, p.expectedEdges),
-		);
+		const dirs: (StrokeDir | null)[] = strokes.map((s) => getStrokeDir(s, p.expectedEdges));
 		const groups: [StrokeDir[], StrokeDir[], StrokeDir[]] = [[], [], []];
 		for (const sd of dirs) {
 			if (sd) groups[sd.edge.vpIndex].push(sd);
 		}
-		const inferredVPs: (Pt | null)[] = [
-			inferGroupVP(groups[0]),
-			inferGroupVP(groups[1]),
-			inferGroupVP(groups[2]),
-		];
+		const inferredVPs: (Pt | null)[] = [inferGroupVP(groups[0]), inferGroupVP(groups[1]), inferGroupVP(groups[2])];
 
 		return strokes.map((stroke, i) => {
 			const pts = getStrokePoints(stroke);
 			if (pts.length < 2) {
-				return buildMetricScore(
-					pts.length > 0 ? pts : [{ x: 0, y: 0, pressure: 0, timestamp: 0 }],
-					{ smoothness: true },
-				);
+				return buildMetricScore(pts.length > 0 ? pts : [{ x: 0, y: 0, pressure: 0, timestamp: 0 }], {
+					smoothness: true,
+				});
 			}
 
 			const sd = dirs[i];
@@ -688,22 +574,14 @@ export const shallowBoxesPlugin = defineExercise({
 		});
 	},
 
-	scoreStroke(
-		points: StrokePoint[],
-		_reference: ReferenceShape,
-		_strokeIndex: number,
-	): StrokeScore {
+	scoreStroke(points: StrokePoint[], _reference: ReferenceShape, _strokeIndex: number): StrokeScore {
 		return buildMetricScore(points, {
 			smoothness: true,
 			speedConsistency: true,
 		});
 	},
 
-	isStrokeRelevant(
-		stroke: Stroke,
-		reference: ReferenceShape,
-		canvasW: number,
-	): boolean {
+	isStrokeRelevant(stroke: Stroke, reference: ReferenceShape, canvasW: number): boolean {
 		const pts = getStrokePoints(stroke);
 		if (pts.length < 2) return false;
 		if (strokeChord(pts) < canvasW * 0.02) return false;
@@ -714,9 +592,7 @@ export const shallowBoxesPlugin = defineExercise({
 		const sampleStep = Math.max(1, Math.floor(pts.length / 10));
 
 		for (const edge of p.yEdges) {
-			const edgeLen = Math.sqrt(
-				(edge.x2 - edge.x1) ** 2 + (edge.y2 - edge.y1) ** 2,
-			);
+			const edgeLen = Math.sqrt((edge.x2 - edge.x1) ** 2 + (edge.y2 - edge.y1) ** 2);
 			if (edgeLen < 1) continue;
 			let totalD = 0;
 			let samples = 0;
@@ -726,8 +602,7 @@ export const shallowBoxesPlugin = defineExercise({
 			}
 			const avgD = totalD / samples;
 			const sLen = strokeChord(pts);
-			if (avgD < Math.max(edgeLen * 0.12, 15) && sLen / edgeLen > 0.4)
-				return false;
+			if (avgD < Math.max(edgeLen * 0.12, 15) && sLen / edgeLen > 0.4) return false;
 		}
 
 		return true;

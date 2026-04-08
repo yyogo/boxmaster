@@ -17,14 +17,23 @@ type Pt = { x: number; y: number };
  *   | h7 h8  1 |     [1]     [ w ]
  */
 interface Homography {
-	h1: number; h2: number; h3: number;
-	h4: number; h5: number; h6: number;
-	h7: number; h8: number;
+	h1: number;
+	h2: number;
+	h3: number;
+	h4: number;
+	h5: number;
+	h6: number;
+	h7: number;
+	h8: number;
 }
 
 function computeHomography(A: Pt, B: Pt, C: Pt, D: Pt): Homography {
-	const a = C.x - B.x, b = C.x - D.x, c = B.x + D.x - A.x - C.x;
-	const d = C.y - B.y, e = C.y - D.y, f = B.y + D.y - A.y - C.y;
+	const a = C.x - B.x,
+		b = C.x - D.x,
+		c = B.x + D.x - A.x - C.x;
+	const d = C.y - B.y,
+		e = C.y - D.y,
+		f = B.y + D.y - A.y - C.y;
 	const det = a * e - b * d;
 	const h7 = (c * e - b * f) / det;
 	const h8 = (a * f - c * d) / det;
@@ -35,7 +44,8 @@ function computeHomography(A: Pt, B: Pt, C: Pt, D: Pt): Homography {
 		h4: B.y * (h7 + 1) - A.y,
 		h5: D.y * (h8 + 1) - A.y,
 		h6: A.y,
-		h7, h8,
+		h7,
+		h8,
 	};
 }
 
@@ -51,15 +61,26 @@ function invertH(H: Homography): Homography {
 	const { h1: a, h2: b, h3: c, h4: d, h5: e, h6: f, h7: g, h8: h } = H;
 	const det = a * (e - f * h) - b * (d - f * g) + c * (d * h - e * g);
 	const raw = [
-		e - f * h, c * h - b, b * f - c * e,
-		f * g - d, a - c * g, c * d - a * f,
-		d * h - e * g, b * g - a * h, a * e - b * d,
+		e - f * h,
+		c * h - b,
+		b * f - c * e,
+		f * g - d,
+		a - c * g,
+		c * d - a * f,
+		d * h - e * g,
+		b * g - a * h,
+		a * e - b * d,
 	];
 	const s = raw[8] / det;
 	return {
-		h1: raw[0] / det / s, h2: raw[1] / det / s, h3: raw[2] / det / s,
-		h4: raw[3] / det / s, h5: raw[4] / det / s, h6: raw[5] / det / s,
-		h7: raw[6] / det / s, h8: raw[7] / det / s,
+		h1: raw[0] / det / s,
+		h2: raw[1] / det / s,
+		h3: raw[2] / det / s,
+		h4: raw[3] / det / s,
+		h5: raw[4] / det / s,
+		h6: raw[5] / det / s,
+		h7: raw[6] / det / s,
+		h8: raw[7] / det / s,
 	};
 }
 
@@ -109,8 +130,10 @@ function generatePlane(
 		B = { x: cx, y: cy + vDir * edgeLen };
 	}
 
-	const dxA = vp.x - A.x, dyA = vp.y - A.y;
-	const dxB = vp.x - B.x, dyB = vp.y - B.y;
+	const dxA = vp.x - A.x,
+		dyA = vp.y - A.y;
+	const dxB = vp.x - B.x,
+		dyB = vp.y - B.y;
 	if (Math.hypot(dxA, dyA) < 1 || Math.hypot(dxB, dyB) < 1) return null;
 
 	const D: Pt = { x: A.x + dxA * depthFraction, y: A.y + dyA * depthFraction };
@@ -126,8 +149,8 @@ function generatePlane(
 		curvePoints.push(applyH(H, 0.5 + 0.5 * Math.cos(t), 0.5 + 0.5 * Math.sin(t)));
 	}
 
-	const cxs = curvePoints.map(p => p.x);
-	const cys = curvePoints.map(p => p.y);
+	const cxs = curvePoints.map((p) => p.x);
+	const cys = curvePoints.map((p) => p.y);
 	const spanX = Math.max(...cxs) - Math.min(...cxs);
 	const spanY = Math.max(...cys) - Math.min(...cys);
 	const minSpan = Math.min(spanX, spanY);
@@ -157,7 +180,7 @@ function scoreCurveAccuracy(points: StrokePoint[], corners: Pt[]): number {
 		totalDist += Math.abs(Math.sqrt(dx * dx + dy * dy) - 0.5);
 	}
 	const avgDist = totalDist / points.length;
-	return Math.max(0, Math.min(100, 100 - (avgDist / 0.20) * 100));
+	return Math.max(0, Math.min(100, 100 - (avgDist / 0.2) * 100));
 }
 
 export const planeEllipsePlugin = defineExercise({
@@ -185,7 +208,7 @@ export const planeEllipsePlugin = defineExercise({
 
 		for (let attempt = 0; attempt < 40; attempt++) {
 			const edgeLen = minDim * (0.28 + Math.random() * 0.22);
-			const depthFraction = 0.22 + Math.random() * 0.20;
+			const depthFraction = 0.22 + Math.random() * 0.2;
 			const orientation: 'horizontal' | 'vertical' = Math.random() < 0.6 ? 'horizontal' : 'vertical';
 
 			const maxSz = edgeLen * 2.5;
@@ -198,7 +221,7 @@ export const planeEllipsePlugin = defineExercise({
 			const plane = generatePlane(s.vp, s.horizonY, slot.x + slot.w / 2, cy, edgeLen, depthFraction, orientation);
 			if (plane) {
 				const allInBounds = plane.corners.every(
-					p => p.x > 20 && p.x < canvasW - 20 && p.y > 20 && p.y < canvasH - 20
+					(p) => p.x > 20 && p.x < canvasW - 20 && p.y > 20 && p.y < canvasH - 20,
 				);
 				if (allInBounds) {
 					result = plane;
@@ -212,7 +235,7 @@ export const planeEllipsePlugin = defineExercise({
 			const cy = s.horizonY + canvasH * 0.25;
 			const hDir = s.vp.x > canvasW / 2 ? -1 : 1;
 			const cx = Math.max(edgeLen, Math.min(canvasW - edgeLen, s.vp.x + hDir * (edgeLen * 2)));
-			result = generatePlane(s.vp, s.horizonY, cx, cy, edgeLen, 0.30, 'horizontal')!;
+			result = generatePlane(s.vp, s.horizonY, cx, cy, edgeLen, 0.3, 'horizontal')!;
 		}
 
 		const params: PlaneEllipseParams = {
@@ -270,10 +293,10 @@ export const planeEllipsePlugin = defineExercise({
 		// True tangent points: map the unit-circle contact points through H
 		const H = computeHomography(corners[0], corners[1], corners[2], corners[3]);
 		const tangents: Pt[] = [
-			applyH(H, 0.5, 0),   // on AB
-			applyH(H, 1,   0.5), // on BC
-			applyH(H, 0.5, 1),   // on CD
-			applyH(H, 0,   0.5), // on DA
+			applyH(H, 0.5, 0), // on AB
+			applyH(H, 1, 0.5), // on BC
+			applyH(H, 0.5, 1), // on CD
+			applyH(H, 0, 0.5), // on DA
 		];
 
 		if (visibility === 'full') {
@@ -328,7 +351,7 @@ export const planeEllipsePlugin = defineExercise({
 		const sx = pts.reduce((s, pt) => s + pt.x, 0) / pts.length;
 		const sy = pts.reduce((s, pt) => s + pt.y, 0) / pts.length;
 
-		const quadSize = Math.max(...p.corners.map(c => Math.hypot(c.x - cx, c.y - cy)));
+		const quadSize = Math.max(...p.corners.map((c) => Math.hypot(c.x - cx, c.y - cy)));
 		if (Math.hypot(sx - cx, sy - cy) > quadSize * 2.5) return false;
 
 		const arc = strokeArcLen(pts);
@@ -346,8 +369,8 @@ export const planeEllipsePlugin = defineExercise({
 
 	getBounds(params: Record<string, unknown>) {
 		const p = params as unknown as PlaneEllipseParams;
-		const xs = p.corners.map(c => c.x);
-		const ys = p.corners.map(c => c.y);
+		const xs = p.corners.map((c) => c.x);
+		const ys = p.corners.map((c) => c.y);
 		return {
 			minX: Math.min(...xs) - 15,
 			minY: Math.min(...ys) - 15,

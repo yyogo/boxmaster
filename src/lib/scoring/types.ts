@@ -1,4 +1,11 @@
-export type IssueType = 'accurate' | 'divergent' | 'jittery' | 'pressure_spike' | 'hesitation' | 'pressure_inconsistent' | 'pressure_deviation';
+export type IssueType =
+	| 'accurate'
+	| 'divergent'
+	| 'jittery'
+	| 'pressure_spike'
+	| 'hesitation'
+	| 'pressure_inconsistent'
+	| 'pressure_deviation';
 
 export interface ScoredSegment {
 	startIdx: number;
