@@ -42,7 +42,8 @@
 	let currentStrokes: Stroke[] = $state([]);
 	let currentScores: StrokeScore[] | null = $state(null);
 	let rounds: RoundResult[] = $state([]);
-	let fadingLayer: FadingLayer | null = $state(null);
+	let fadingLayers: FadingLayer[] = $state([]);
+	let nextFadeId = 0;
 	let guideVisibility: GuideVisibility = $state('full');
 	let lightTheme = $state(savedPrefs.lightTheme);
 	let mode: ExerciseMode = $state('tracing');
@@ -184,7 +185,7 @@
 		rounds = [];
 		currentStrokes = [];
 		currentScores = null;
-		fadingLayer = null;
+		fadingLayers = [];
 		hasStarted = false;
 		exerciseStartTime = 0;
 		totalTime = 0;
@@ -412,27 +413,29 @@
 
 	function fadeAttemptStroke() {
 		hatchFillFromLow = null;
-		fadingLayer = {
+		const id = nextFadeId++;
+		fadingLayers = [...fadingLayers, {
+			id,
 			config: exerciseConfig!,
 			strokes: [...currentStrokes],
 			scores: currentScores,
 			alpha: 1,
 			guideVisibility: 'hidden'
-		};
+		}];
 		currentStrokes = [];
 		currentScores = null;
 		phase = 'drawing';
 
 		const fadeStart = performance.now();
-		const fadeDuration = 600;
+		const fadeDuration = 2500;
 		function tick(now: number) {
 			const elapsed = now - fadeStart;
-			const alpha = Math.max(0, 1 - elapsed / fadeDuration);
-			if (fadingLayer) fadingLayer = { ...fadingLayer, alpha };
-			if (elapsed < fadeDuration) {
+			const alpha = Math.exp(-3 * elapsed / fadeDuration);
+			if (alpha > 0.01) {
+				fadingLayers = fadingLayers.map(l => l.id === id ? { ...l, alpha } : l);
 				requestAnimationFrame(tick);
 			} else {
-				fadingLayer = null;
+				fadingLayers = fadingLayers.filter(l => l.id !== id);
 			}
 		}
 		requestAnimationFrame(tick);
@@ -448,12 +451,14 @@
 			return;
 		}
 
-		fadingLayer = {
+		const id = nextFadeId++;
+		fadingLayers = [...fadingLayers, {
+			id,
 			config: exerciseConfig!,
 			strokes: [...currentStrokes],
 			scores: currentScores,
 			alpha: 1,
-			guideVisibility,
+			guideVisibility: 'full',
 			hatchProgress:
 				isHatchType && mode !== 'free'
 					? {
@@ -463,7 +468,7 @@
 							lightTheme
 						}
 					: null
-		};
+		}];
 
 		hatchFillFromLow = null;
 		roundIndex = nextIndex;
@@ -482,16 +487,16 @@
 		}
 
 		const fadeStart = performance.now();
-		const fadeDuration = 800;
+		const fadeDuration = 2500;
 
 		function tick(now: number) {
 			const elapsed = now - fadeStart;
-			const alpha = Math.max(0, 1 - elapsed / fadeDuration);
-			if (fadingLayer) fadingLayer = { ...fadingLayer, alpha };
-			if (elapsed < fadeDuration) {
+			const alpha = Math.exp(-3 * elapsed / fadeDuration);
+			if (alpha > 0.01) {
+				fadingLayers = fadingLayers.map(l => l.id === id ? { ...l, alpha } : l);
 				requestAnimationFrame(tick);
 			} else {
-				fadingLayer = null;
+				fadingLayers = fadingLayers.filter(l => l.id !== id);
 			}
 		}
 		requestAnimationFrame(tick);
@@ -692,7 +697,7 @@
 			{guideVisibility}
 			strokes={currentStrokes}
 			scores={currentScores}
-			{fadingLayer}
+			fadingLayers={fadingLayers}
 			hatchProgress={hatchingFillProgress}
 			inputEnabled={phase === 'drawing' ||
 				(phase === 'reviewing' && plugin?.reviewAllowsDrawing !== false)}

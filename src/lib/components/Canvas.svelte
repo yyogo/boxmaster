@@ -20,7 +20,7 @@
 		guideVisibility: GuideVisibility;
 		strokes: Stroke[];
 		scores: StrokeScore[] | null;
-		fadingLayer?: FadingLayer | null;
+		fadingLayers?: FadingLayer[];
 		/** Basic hatching: progressive region fill (completed/total strokes) */
 		hatchProgress?: HatchProgressState | null;
 		inputEnabled?: boolean;
@@ -38,7 +38,7 @@
 		guideVisibility,
 		strokes,
 		scores = null,
-		fadingLayer = null,
+		fadingLayers = [],
 		hatchProgress = null,
 		inputEnabled = true,
 		reviewing = false,
@@ -170,7 +170,7 @@
 			transform,
 			guideVisibility,
 			scores,
-			fadingLayer,
+			fadingLayers,
 			bgColor,
 			hatchProgress,
 			reviewing

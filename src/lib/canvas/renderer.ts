@@ -17,6 +17,7 @@ export interface HatchProgressState {
 }
 
 export interface FadingLayer {
+	id: number;
 	config: ExerciseConfig;
 	strokes: Stroke[];
 	scores: StrokeScore[] | null;
@@ -33,7 +34,7 @@ export interface RenderState {
 	transform: ViewTransform;
 	guideVisibility: GuideVisibility;
 	scores: StrokeScore[] | null;
-	fadingLayer?: FadingLayer | null;
+	fadingLayers?: FadingLayer[];
 	bgColor?: string;
 	/** Basic hatching: progressive fill toward completion */
 	hatchProgress?: HatchProgressState | null;
@@ -59,35 +60,37 @@ export function render(
 
 	const plugin = state.exerciseConfig ? tryGetPlugin(state.exerciseConfig.type) : undefined;
 
-	if (state.fadingLayer && state.fadingLayer.alpha > 0) {
-		const fl = state.fadingLayer;
-		const flPlugin = tryGetPlugin(fl.config.type);
-		ctx.save();
-		ctx.globalAlpha = fl.alpha;
-		if (
-			fl.hatchProgress &&
-			fl.hatchProgress.fillFromLowY !== null &&
-			fl.hatchProgress.total > 0
-		) {
-			const progress = fl.hatchProgress.completed / fl.hatchProgress.total;
-			if (fl.config.type === 'hatching') {
-				renderHatchFillProgress(ctx, fl.config.references[0].params as HatchParams, progress, fl.hatchProgress.fillFromLowY, fl.hatchProgress.lightTheme);
-			} else if (fl.config.type === 'hatching-advanced') {
-				renderAdvancedFillProgress(ctx, fl.config.references[0].params as HatchAdvancedParams, progress, fl.hatchProgress.fillFromLowY, fl.hatchProgress.lightTheme);
+	if (state.fadingLayers) {
+		for (const fl of state.fadingLayers) {
+			if (fl.alpha <= 0) continue;
+			const flPlugin = tryGetPlugin(fl.config.type);
+			ctx.save();
+			ctx.globalAlpha = fl.alpha;
+			if (
+				fl.hatchProgress &&
+				fl.hatchProgress.fillFromLowY !== null &&
+				fl.hatchProgress.total > 0
+			) {
+				const progress = fl.hatchProgress.completed / fl.hatchProgress.total;
+				if (fl.config.type === 'hatching') {
+					renderHatchFillProgress(ctx, fl.config.references[0].params as HatchParams, progress, fl.hatchProgress.fillFromLowY, fl.hatchProgress.lightTheme);
+				} else if (fl.config.type === 'hatching-advanced') {
+					renderAdvancedFillProgress(ctx, fl.config.references[0].params as HatchAdvancedParams, progress, fl.hatchProgress.fillFromLowY, fl.hatchProgress.lightTheme);
+				}
 			}
-		}
-		renderGuides(ctx, fl.config, fl.guideVisibility);
-		for (let i = 0; i < fl.strokes.length; i++) {
-			const score = fl.scores?.[i] ?? null;
-			if (score) {
-				if (flPlugin?.renderScoredStroke) flPlugin.renderScoredStroke(ctx, fl.strokes[i], score);
-				else renderHighlights(ctx, fl.strokes[i], score);
-			} else {
-				if (flPlugin?.renderStroke) flPlugin.renderStroke(ctx, fl.strokes[i], '#e2e2e2', 2.5);
-				else drawStroke(ctx, fl.strokes[i], '#e2e2e2', 2.5);
+			renderGuides(ctx, fl.config, fl.guideVisibility);
+			for (let i = 0; i < fl.strokes.length; i++) {
+				const score = fl.scores?.[i] ?? null;
+				if (score) {
+					if (flPlugin?.renderScoredStroke) flPlugin.renderScoredStroke(ctx, fl.strokes[i], score);
+					else renderHighlights(ctx, fl.strokes[i], score);
+				} else {
+					if (flPlugin?.renderStroke) flPlugin.renderStroke(ctx, fl.strokes[i], '#e2e2e2', 2.5);
+					else drawStroke(ctx, fl.strokes[i], '#e2e2e2', 2.5);
+				}
 			}
+			ctx.restore();
 		}
-		ctx.restore();
 	}
 
 	if (state.exerciseConfig) {
