@@ -95,10 +95,13 @@
 
 	let tipText = $state('');
 	let tipVisible = $state(false);
+	let tipFaded = $state(false);
 	let tipShownIndices = new Set<number>();
 	let tipTimeout: ReturnType<typeof setTimeout> | null = null;
+	let tipFadeTimeout: ReturnType<typeof setTimeout> | null = null;
 	const TIP_SHOW_EVERY = 3;
 	const TIP_DISPLAY_MS = 6000;
+	const TIP_FADE_DELAY_MS = 3000;
 
 	let feedback: FeedbackMessage | null = $state(null);
 	let feedbackVisible = $state(false);
@@ -192,10 +195,14 @@
 	}
 
 	function showNextTip() {
+		if (tipTimeout) clearTimeout(tipTimeout);
+		if (tipFadeTimeout) clearTimeout(tipFadeTimeout);
+		tipFaded = false;
+
 		if (plugin?.instructions) {
 			tipText = plugin.instructions;
 			tipVisible = true;
-			if (tipTimeout) clearTimeout(tipTimeout);
+			tipFadeTimeout = setTimeout(() => { tipFaded = true; }, TIP_FADE_DELAY_MS);
 			return;
 		}
 		const recent = rounds.slice(-4).flatMap((r) => r.strokeScores);
@@ -203,7 +210,7 @@
 		tipShownIndices.add(index);
 		tipText = text;
 		tipVisible = true;
-		if (tipTimeout) clearTimeout(tipTimeout);
+		tipFadeTimeout = setTimeout(() => { tipFaded = true; }, TIP_FADE_DELAY_MS);
 		tipTimeout = setTimeout(() => {
 			tipVisible = false;
 		}, TIP_DISPLAY_MS);
@@ -237,8 +244,10 @@
 		attemptScores = [];
 		tipText = '';
 		tipVisible = false;
+		tipFaded = false;
 		tipShownIndices = new Set();
 		if (tipTimeout) clearTimeout(tipTimeout);
+		if (tipFadeTimeout) clearTimeout(tipFadeTimeout);
 		feedback = null;
 		feedbackVisible = false;
 		if (feedbackTimeout) clearTimeout(feedbackTimeout);
@@ -933,7 +942,7 @@
 
 		<!-- Tip / instruction banner -->
 		{#if tipText}
-			<div class="tip-banner" class:visible={tipVisible && (!isDrawing || !!plugin?.instructions)}>
+			<div class="tip-banner" class:visible={tipVisible && (!isDrawing || !!plugin?.instructions)} class:faded={tipFaded}>
 				{tipText}
 			</div>
 		{/if}
@@ -1260,15 +1269,26 @@
 		line-height: 1.45;
 		text-align: center;
 		z-index: 9;
-		pointer-events: none;
 		backdrop-filter: blur(10px);
 		-webkit-backdrop-filter: blur(10px);
 		opacity: 0;
 		transition: opacity 0.5s ease;
+		pointer-events: none;
 	}
 
 	.tip-banner.visible {
 		opacity: 1;
+		pointer-events: auto;
+	}
+
+	.tip-banner.visible.faded {
+		opacity: 0.15;
+		transition: opacity 1.5s ease;
+	}
+
+	.tip-banner.visible.faded:hover {
+		opacity: 1;
+		transition: opacity 0.2s ease;
 	}
 
 	:global(.exercise-container.light) .tip-banner {

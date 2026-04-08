@@ -33,12 +33,29 @@ function drawCrosshair(ctx: CanvasRenderingContext2D, x: number, y: number, size
 	ctx.stroke();
 }
 
-interface ConvergingSession {
-	vp: { x: number; y: number };
-}
 
 function allGuideLines(p: ConvergingParams): LineParams[] {
 	return [p.witnessLines[0], p.witnessLines[1], ...p.targetLines];
+}
+
+function clipRayToCanvas(
+	sx: number,
+	sy: number,
+	ex: number,
+	ey: number,
+	canvasW: number,
+	canvasH: number,
+	margin: number,
+): { x: number; y: number } {
+	const dx = ex - sx;
+	const dy = ey - sy;
+	let t = 1;
+	if (dx > 0) t = Math.min(t, (canvasW - margin - sx) / dx);
+	else if (dx < 0) t = Math.min(t, (margin - sx) / dx);
+	if (dy > 0) t = Math.min(t, (canvasH - margin - sy) / dy);
+	else if (dy < 0) t = Math.min(t, (margin - sy) / dy);
+	t = Math.max(0, t);
+	return { x: sx + dx * t, y: sy + dy * t };
 }
 
 function segmentTowardVp(
@@ -56,7 +73,15 @@ function segmentTowardVp(
 	const lineLen = Math.min(dist * 0.88, maxDim * 0.78);
 	const ux = dx / dist;
 	const uy = dy / dist;
-	return { x1: sx, y1: sy, x2: sx + ux * lineLen, y2: sy + uy * lineLen };
+	let ex = sx + ux * lineLen;
+	let ey = sy + uy * lineLen;
+	const edgeMargin = 4;
+	if (ex < edgeMargin || ex > canvasW - edgeMargin || ey < edgeMargin || ey > canvasH - edgeMargin) {
+		const clipped = clipRayToCanvas(sx, sy, ex, ey, canvasW, canvasH, edgeMargin);
+		ex = clipped.x;
+		ey = clipped.y;
+	}
+	return { x1: sx, y1: sy, x2: ex, y2: ey };
 }
 
 function witnessSeparation(w0: LineParams, w1: LineParams, vp: { x: number; y: number }): number {
@@ -116,6 +141,10 @@ function generateConverging(
 	const margin = 48;
 	const targetCount = 4 + Math.floor(Math.random() * 3); // 4–6
 
+	const minDim = Math.min(canvasW, canvasH);
+	const minWitnessLen = minDim * 0.22;
+	const minTargetLen = minDim * 0.15;
+
 	for (let attempt = 0; attempt < 90; attempt++) {
 		const edgeA = Math.floor(Math.random() * 4);
 		let edgeB = Math.floor(Math.random() * 4);
@@ -129,6 +158,10 @@ function generateConverging(
 		const w0 = segmentTowardVp(startA.x, startA.y, vp, canvasW, canvasH);
 		const w1 = segmentTowardVp(startB.x, startB.y, vp, canvasW, canvasH);
 
+		const w0len = Math.hypot(w0.x2 - w0.x1, w0.y2 - w0.y1);
+		const w1len = Math.hypot(w1.x2 - w1.x1, w1.y2 - w1.y1);
+		if (w0len < minWitnessLen || w1len < minWitnessLen) continue;
+
 		if (witnessSeparation(w0, w1, vp) < MIN_WITNESS_ANGLE) continue;
 
 		const witnessLines: [LineParams, LineParams] = [w0, w1];
@@ -137,7 +170,6 @@ function generateConverging(
 			{ x: w1.x1, y: w1.y1 },
 		];
 		const targetLines: LineParams[] = [];
-		const minDim = Math.min(canvasW, canvasH);
 
 		for (let k = 0; k < targetCount * 8 && targetLines.length < targetCount; k++) {
 			const ax = margin + Math.random() * (canvasW - 2 * margin);
@@ -154,7 +186,7 @@ function generateConverging(
 
 			const seg = segmentTowardVp(ax, ay, vp, canvasW, canvasH);
 			const el = Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1);
-			if (el < minDim * 0.06) continue;
+			if (el < minTargetLen) continue;
 
 			targetLines.push(seg);
 			occupied.push({ x: ax, y: ay });
@@ -299,13 +331,9 @@ export const convergingPlugin = defineExercise({
 	instructions:
 		'Challenge: use the two witness lines to find the vanishing direction. Draw from each dot toward that VP. Done → review extensions → Done again to reveal VP → Next to score.',
 
-	createSession(canvasW: number, canvasH: number): unknown {
-		return { vp: generateVp(canvasW, canvasH) } as ConvergingSession;
-	},
-
-	generateFromSession(session: unknown, mode: ExerciseMode, canvasW: number, canvasH: number): ExerciseConfig {
-		const s = session as ConvergingSession;
-		let params = generateConverging(s.vp, canvasW, canvasH, mode) ?? generateFallback(s.vp, canvasW, canvasH, mode);
+	generate(mode: ExerciseMode, canvasW: number, canvasH: number): ExerciseConfig {
+		const vp = generateVp(canvasW, canvasH);
+		const params = generateConverging(vp, canvasW, canvasH, mode) ?? generateFallback(vp, canvasW, canvasH, mode);
 
 		const strokeCount = mode === 'tracing' ? 2 + params.targetLines.length : params.targetLines.length;
 
@@ -317,11 +345,6 @@ export const convergingPlugin = defineExercise({
 			references: [{ type: 'converging', params }],
 			availableModes: ['tracing', 'challenge', 'memory'],
 		};
-	},
-
-	generate(mode: ExerciseMode, canvasW: number, canvasH: number): ExerciseConfig {
-		const session = this.createSession!(canvasW, canvasH);
-		return this.generateFromSession!(session, mode, canvasW, canvasH);
 	},
 
 	renderScaffold(ctx: CanvasRenderingContext2D, params: Record<string, unknown>) {
