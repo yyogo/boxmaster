@@ -440,7 +440,7 @@
 		phase = 'drawing';
 
 		const fadeStart = performance.now();
-		const fadeDuration = 2500;
+		const fadeDuration = 1500;
 		function tick(now: number) {
 			const elapsed = now - fadeStart;
 			const alpha = Math.exp((-3 * elapsed) / fadeDuration);
@@ -503,7 +503,7 @@
 		}
 
 		const fadeStart = performance.now();
-		const fadeDuration = 2500;
+		const fadeDuration = 1500;
 
 		function tick(now: number) {
 			const elapsed = now - fadeStart;

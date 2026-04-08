@@ -82,7 +82,9 @@ export function render(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement,
 					);
 				}
 			}
+			ctx.filter = 'saturate(0.25)';
 			renderGuides(ctx, fl.config, fl.guideVisibility);
+			ctx.filter = 'none';
 			for (let i = 0; i < fl.strokes.length; i++) {
 				const score = fl.scores?.[i] ?? null;
 				if (score) {
@@ -118,7 +120,9 @@ export function render(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement,
 				);
 			}
 		}
+		ctx.filter = 'saturate(1.4)';
 		renderGuides(ctx, state.exerciseConfig, state.guideVisibility);
+		ctx.filter = 'none';
 	}
 
 	for (let i = 0; i < state.strokes.length; i++) {

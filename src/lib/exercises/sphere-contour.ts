@@ -178,11 +178,13 @@ export const sphereContourPlugin = defineExercise({
 		ctx.lineWidth = 2.5;
 		ctx.stroke();
 
-		if (p.offset === 0) {
-			const touch1 = ellipsePoint(ecx, ecy, rx, ry, p.rotation, 0);
-			const touch2 = ellipsePoint(ecx, ecy, rx, ry, p.rotation, Math.PI);
-			drawDot(ctx, touch1.x, touch1.y, 3.5, HINT_COLOR);
-			drawDot(ctx, touch2.x, touch2.y, 3.5, HINT_COLOR);
+		if (visibility === 'hints') {
+			const tangentPoints = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2].map((t) =>
+				ellipsePoint(ecx, ecy, rx, ry, p.rotation, t),
+			);
+			for (const point of tangentPoints) {
+				drawDot(ctx, point.x, point.y, 3.5, HINT_COLOR);
+			}
 		}
 	},
 

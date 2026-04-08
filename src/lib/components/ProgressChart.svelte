@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import type { ExerciseResult, MetricKey } from '$lib/scoring/types';
-	import { METRIC_LABELS } from '$lib/scoring/types';
+	import { tryGetPlugin } from '$lib/exercises/registry';
 	import {
 		Chart,
 		LineController,
@@ -11,87 +10,98 @@
 		LinearScale,
 		CategoryScale,
 		Tooltip,
+		Legend,
 	} from 'chart.js';
 
-	Chart.register(LineController, LineElement, PointElement, Filler, LinearScale, CategoryScale, Tooltip);
+	Chart.register(
+		LineController,
+		LineElement,
+		PointElement,
+		Filler,
+		LinearScale,
+		CategoryScale,
+		Tooltip,
+		Legend,
+	);
+
+	interface ChartDataset {
+		label: string;
+		metricKey?: MetricKey;
+		color: string;
+	}
 
 	interface Props {
 		results: ExerciseResult[];
-		title?: string;
-		metricKey?: MetricKey;
-		compact?: boolean;
-		color?: string;
+		datasets: ChartDataset[];
 	}
 
-	let { results, title, metricKey, compact = false, color = '#4c6ef5' }: Props = $props();
+	let { results, datasets }: Props = $props();
 
 	let canvasEl: HTMLCanvasElement | undefined = $state();
 	let chart: Chart | undefined;
 
-	const displayTitle = $derived(title ?? (metricKey ? METRIC_LABELS[metricKey] : ''));
-
-	interface DataPoint {
-		value: number;
-		label: string;
-	}
-
-	function extractData(): DataPoint[] {
-		const pts: DataPoint[] = [];
-		for (const r of results) {
-			const v = metricKey ? r.metricAverages?.[metricKey] : r.aggregateScore;
-			if (v != null) {
-				const d = new Date(r.timestamp);
-				pts.push({
-					value: v,
-					label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-				});
-			}
-		}
-		return pts;
-	}
-
-	function buildChart(canvas: HTMLCanvasElement, data: DataPoint[]) {
+	function buildChart(canvas: HTMLCanvasElement) {
 		if (chart) chart.destroy();
+		if (results.length === 0 || datasets.length === 0) return;
 
+		const labels = results.map((r) => {
+			const d = new Date(r.timestamp);
+			return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+		});
+
+		const singleDataset = datasets.length === 1;
 		const ctx = canvas.getContext('2d')!;
-		const gradient = ctx.createLinearGradient(0, 0, 0, canvas.clientHeight);
-		gradient.addColorStop(0, color + '40');
-		gradient.addColorStop(1, color + '00');
+
+		const chartDatasets = datasets.map((ds) => {
+			const data = results.map((r) => {
+				if (ds.metricKey) {
+					return r.metricAverages?.[ds.metricKey] ?? null;
+				}
+				return r.aggregateScore;
+			});
+
+			let bg: string | CanvasGradient = ds.color + '18';
+			if (singleDataset) {
+				const gradient = ctx.createLinearGradient(0, 0, 0, canvas.clientHeight);
+				gradient.addColorStop(0, ds.color + '40');
+				gradient.addColorStop(1, ds.color + '00');
+				bg = gradient;
+			}
+
+			return {
+				label: ds.label,
+				data,
+				borderColor: ds.color,
+				backgroundColor: bg,
+				borderWidth: 2,
+				pointBackgroundColor: ds.color,
+				pointBorderColor: '#16162a',
+				pointBorderWidth: 1.5,
+				pointRadius: results.length > 40 ? 1.5 : results.length > 20 ? 2.5 : 3,
+				pointHoverRadius: 5,
+				fill: singleDataset,
+				tension: 0.3,
+				spanGaps: false,
+			};
+		});
+
+		const storedResults = results;
 
 		chart = new Chart(canvas, {
 			type: 'line',
-			data: {
-				labels: data.map((d) => d.label),
-				datasets: [
-					{
-						data: data.map((d) => d.value),
-						borderColor: color,
-						backgroundColor: gradient,
-						borderWidth: compact ? 1.5 : 2,
-						pointBackgroundColor: color,
-						pointBorderColor: '#16162a',
-						pointBorderWidth: compact ? 1 : 1.5,
-						pointRadius: compact ? 2 : 3.5,
-						pointHoverRadius: compact ? 4 : 6,
-						fill: true,
-						tension: 0.35,
-					},
-				],
-			},
+			data: { labels, datasets: chartDatasets },
 			options: {
 				responsive: true,
 				maintainAspectRatio: false,
 				animation: { duration: 300 },
-				layout: { padding: compact ? { top: 4, right: 4 } : { top: 4, right: 8 } },
+				layout: { padding: { top: 4, right: 8 } },
 				scales: {
 					x: {
-						display: !compact,
 						grid: { color: '#2a2a4a40' },
-						ticks: { color: '#666688', font: { size: 10 }, maxTicksLimit: 8 },
+						ticks: { color: '#666688', font: { size: 10 }, maxTicksLimit: 10 },
 						border: { display: false },
 					},
 					y: {
-						display: !compact,
 						min: 0,
 						max: 100,
 						grid: { color: '#2a2a4a60' },
@@ -108,19 +118,51 @@
 						borderColor: '#3a3a5a',
 						borderWidth: 1,
 						cornerRadius: 8,
-						padding: 8,
+						padding: 10,
 						titleFont: { size: 11 },
-						bodyFont: { size: 13, weight: 'bold' },
-						displayColors: false,
+						bodyFont: { size: 12, weight: 'bold' },
+						filter: (item) => item.raw != null,
 						callbacks: {
-							label: (ctx) => `${Math.round(ctx.parsed.y ?? 0)}`,
+							title: (items) => {
+								if (items.length === 0) return '';
+								const idx = items[0].dataIndex;
+								const r = storedResults[idx];
+								if (!r) return '';
+								const d = new Date(r.timestamp);
+								const dateStr = d.toLocaleDateString(undefined, {
+									month: 'short',
+									day: 'numeric',
+									hour: '2-digit',
+									minute: '2-digit',
+								});
+								const label =
+									tryGetPlugin(r.exerciseType)?.label ?? r.exerciseType;
+								return `${label} — ${dateStr}`;
+							},
+							label: (ctx) => {
+								const val = ctx.parsed.y;
+								return val != null
+									? ` ${ctx.dataset.label}: ${Math.round(val)}`
+									: '';
+							},
 						},
 					},
-					legend: { display: false },
+					legend: {
+						display: !singleDataset,
+						position: 'top' as const,
+						labels: {
+							color: '#aaaacc',
+							font: { size: 11 },
+							usePointStyle: true,
+							pointStyle: 'circle',
+							padding: 16,
+							boxWidth: 8,
+							boxHeight: 8,
+						},
+					},
 				},
 				interaction: {
-					mode: 'nearest',
-					axis: 'x',
+					mode: 'index' as const,
 					intersect: false,
 				},
 			},
@@ -128,9 +170,8 @@
 	}
 
 	$effect(() => {
-		const data = extractData();
-		if (canvasEl && data.length > 0) {
-			buildChart(canvasEl, data);
+		if (canvasEl && results.length > 0 && datasets.length > 0) {
+			buildChart(canvasEl);
 		}
 		return () => {
 			if (chart) {
@@ -141,25 +182,18 @@
 	});
 </script>
 
-<div class="chart-container" class:compact>
-	{#if displayTitle && !compact}
-		<h3 class="chart-title">{displayTitle}</h3>
-	{/if}
-
-	{#if extractData().length === 0}
-		<div class="empty">{compact ? '—' : 'No attempts yet'}</div>
+<div class="chart-container">
+	{#if results.length === 0}
+		<div class="empty">No data for selected source</div>
+	{:else if datasets.length === 0}
+		<div class="empty">Select at least one metric</div>
 	{:else}
-		<div class="chart-wrapper" style="height: {compact ? 64 : 180}px">
+		<div class="chart-wrapper">
 			<canvas bind:this={canvasEl}></canvas>
 		</div>
-
-		{#if !compact}
-			{@const data = extractData()}
-			<div class="chart-legend">
-				<span>{data.length} attempt{data.length !== 1 ? 's' : ''}</span>
-				<span>Best: {Math.max(...data.map((d) => d.value))}</span>
-			</div>
-		{/if}
+		<div class="chart-footer">
+			<span>{results.length} attempt{results.length !== 1 ? 's' : ''}</span>
+		</div>
 	{/if}
 </div>
 
@@ -170,24 +204,14 @@
 		padding: 16px;
 	}
 
-	.chart-container.compact {
-		padding: 8px 12px;
-	}
-
-	.chart-title {
-		font-size: 0.9rem;
-		color: #aaaacc;
-		margin: 0 0 12px 0;
-		font-weight: 500;
-	}
-
 	.chart-wrapper {
 		position: relative;
+		height: 240px;
 	}
 
-	.chart-legend {
+	.chart-footer {
 		display: flex;
-		justify-content: space-between;
+		justify-content: flex-end;
 		font-size: 0.75rem;
 		color: #666688;
 		margin-top: 8px;
@@ -197,11 +221,6 @@
 		color: #555577;
 		font-size: 0.85rem;
 		text-align: center;
-		padding: 40px 0;
-	}
-
-	.compact .empty {
-		padding: 12px 0;
-		font-size: 0.75rem;
+		padding: 60px 0;
 	}
 </style>

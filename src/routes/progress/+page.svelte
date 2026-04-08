@@ -4,10 +4,10 @@
 	import ProgressChart from '$lib/components/ProgressChart.svelte';
 	import type { ExerciseResult, MetricKey } from '$lib/scoring/types';
 	import { METRIC_KEYS, METRIC_LABELS } from '$lib/scoring/types';
-	import { getResultsByType, clearAllResults } from '$lib/storage/db';
+	import { getResultsByType, getResultsByUnit, getAllResults, clearAllResults } from '$lib/storage/db';
 	import { getProgressSummaries, type ProgressSummary } from '$lib/storage/progress';
 	import '$lib/exercises/init';
-	import { tryGetPlugin } from '$lib/exercises/registry';
+	import { tryGetPlugin, getPluginsByUnit } from '$lib/exercises/registry';
 
 	const METRIC_COLORS: Record<MetricKey, string> = {
 		pathDeviation: '#4c6ef5',
@@ -20,18 +20,67 @@
 		strokeEconomy: '#22d3ee',
 	};
 
+	const OVERALL_COLOR = '#8b5cf6';
+
+	const UNIT_LABELS: Record<string, string> = {
+		'basic-shapes': 'Basic Shapes',
+		strokes: 'Strokes',
+		perspective: 'Perspective',
+	};
+
 	let summaries: ProgressSummary[] = $state([]);
-	let selectedType: string | null = $state(null);
-	let selectedHistory: ExerciseResult[] = $state([]);
+	let selectedSource = $state('all');
+	let sourceResults: ExerciseResult[] = $state([]);
+	let selectedMetrics: Set<string> = $state(new Set(['overall']));
 	let showResetModal = $state(false);
+	let availableMetrics: MetricKey[] = $state([]);
+
+	const sourceGroups = $derived.by(() => {
+		const byUnit = getPluginsByUnit();
+		const withResults = new Set(summaries.map((s) => s.exerciseType));
+
+		const groups: { label: string; options: { value: string; label: string }[] }[] = [];
+
+		const aggregateOpts: { value: string; label: string }[] = [
+			{ value: 'all', label: 'All Exercises' },
+		];
+		for (const unit of byUnit.keys()) {
+			aggregateOpts.push({ value: `unit:${unit}`, label: UNIT_LABELS[unit] ?? unit });
+		}
+		groups.push({ label: 'Aggregates', options: aggregateOpts });
+
+		for (const [unit, plugins] of byUnit) {
+			const opts = plugins
+				.filter((p) => withResults.has(p.id))
+				.map((p) => ({ value: `exercise:${p.id}`, label: p.label }));
+			if (opts.length > 0) {
+				groups.push({ label: UNIT_LABELS[unit] ?? unit, options: opts });
+			}
+		}
+
+		return groups;
+	});
+
+	const chartDatasets = $derived.by(() => {
+		const ds: { label: string; metricKey?: MetricKey; color: string }[] = [];
+		if (selectedMetrics.has('overall')) {
+			ds.push({ label: 'Overall Score', color: OVERALL_COLOR });
+		}
+		for (const mk of availableMetrics) {
+			if (selectedMetrics.has(mk)) {
+				ds.push({ label: METRIC_LABELS[mk], metricKey: mk, color: METRIC_COLORS[mk] });
+			}
+		}
+		return ds;
+	});
 
 	function exerciseLabel(type: string): string {
 		return tryGetPlugin(type)?.label ?? type;
 	}
 
-	function activeMetrics(history: ExerciseResult[]): MetricKey[] {
+	function findAvailableMetrics(results: ExerciseResult[]): MetricKey[] {
 		const seen = new Set<MetricKey>();
-		for (const r of history) {
+		for (const r of results) {
 			for (const k of METRIC_KEYS) {
 				if (r.metricAverages?.[k] != null) seen.add(k);
 			}
@@ -39,25 +88,35 @@
 		return METRIC_KEYS.filter((k) => seen.has(k));
 	}
 
-	function metricLatestAvg(history: ExerciseResult[], key: MetricKey): number | null {
-		const recent = history.slice(-5);
-		const vals = recent.map((r) => r.metricAverages?.[key]).filter((v): v is number => v != null);
-		if (vals.length === 0) return null;
-		return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
-	}
-
-	async function loadSummaries() {
-		summaries = await getProgressSummaries();
-	}
-
-	async function selectType(type: string) {
-		if (selectedType === type) {
-			selectedType = null;
-			selectedHistory = [];
-			return;
+	async function handleSourceChange() {
+		if (selectedSource === 'all') {
+			sourceResults = await getAllResults();
+		} else if (selectedSource.startsWith('unit:')) {
+			sourceResults = await getResultsByUnit(selectedSource.slice(5));
+		} else if (selectedSource.startsWith('exercise:')) {
+			sourceResults = await getResultsByType(selectedSource.slice(9));
 		}
-		selectedType = type;
-		selectedHistory = await getResultsByType(type);
+		availableMetrics = findAvailableMetrics(sourceResults);
+
+		const next = new Set<string>();
+		for (const m of selectedMetrics) {
+			if (m === 'overall' || availableMetrics.includes(m as MetricKey)) {
+				next.add(m);
+			}
+		}
+		if (next.size === 0) next.add('overall');
+		selectedMetrics = next;
+	}
+
+	function toggleMetric(key: string) {
+		const next = new Set(selectedMetrics);
+		if (next.has(key)) {
+			next.delete(key);
+			if (next.size === 0) return;
+		} else {
+			next.add(key);
+		}
+		selectedMetrics = next;
 	}
 
 	function trendIcon(trend: string): string {
@@ -91,6 +150,11 @@
 		});
 	}
 
+	function selectExercise(type: string) {
+		selectedSource = `exercise:${type}`;
+		handleSourceChange();
+	}
+
 	async function handleReset() {
 		await clearAllResults();
 		if (typeof localStorage !== 'undefined') {
@@ -98,14 +162,15 @@
 		}
 		showResetModal = false;
 		summaries = [];
-		selectedType = null;
-		selectedHistory = [];
+		sourceResults = [];
+		selectedSource = 'all';
+		availableMetrics = [];
+		selectedMetrics = new Set(['overall']);
 	}
 
-	const metrics = $derived(activeMetrics(selectedHistory));
-
-	onMount(() => {
-		loadSummaries();
+	onMount(async () => {
+		summaries = await getProgressSummaries();
+		await handleSourceChange();
 	});
 </script>
 
@@ -123,72 +188,84 @@
 			<a href="{base}/" class="start-link">Start practicing →</a>
 		</div>
 	{:else}
-		{#if selectedType && selectedHistory.length > 0}
-			<div class="detail-panel">
-				<div class="detail-header">
-					<h2>{exerciseLabel(selectedType)}</h2>
-					<button
-						class="close-btn"
-						onclick={() => {
-							selectedType = null;
-							selectedHistory = [];
-						}}>✕</button
-					>
-				</div>
-
-				<ProgressChart results={selectedHistory} title="Overall Score" />
-
-				{#if metrics.length > 0}
-					<div class="metrics-grid">
-						{#each metrics as mk}
-							{@const avg = metricLatestAvg(selectedHistory, mk)}
-							<div class="metric-card">
-								<div class="metric-header">
-									<span class="metric-label">{METRIC_LABELS[mk]}</span>
-									{#if avg != null}
-										<span class="metric-value" style="color: {METRIC_COLORS[mk]}">{avg}</span>
-									{/if}
-								</div>
-								<ProgressChart results={selectedHistory} metricKey={mk} compact color={METRIC_COLORS[mk]} />
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		{/if}
-
-		<div class="summary-grid">
-			{#each summaries as s}
-				<button
-					class="summary-card"
-					class:selected={selectedType === s.exerciseType}
-					onclick={() => selectType(s.exerciseType)}
+		<div class="controls">
+			<div class="source-row">
+				<label class="source-label" for="source-select">Source</label>
+				<select
+					id="source-select"
+					class="source-select"
+					bind:value={selectedSource}
+					onchange={() => handleSourceChange()}
 				>
-					<div class="summary-header">
-						<h3>{exerciseLabel(s.exerciseType)}</h3>
-						<span class="trend" style="color: {trendColor(s.trend)}">
-							{trendIcon(s.trend)}
-						</span>
-					</div>
-					<div class="summary-stats">
-						<div class="stat">
-							<span class="stat-value">{s.totalAttempts}</span>
-							<span class="stat-label">attempts</span>
-						</div>
-						<div class="stat">
-							<span class="stat-value">{s.bestScore}</span>
-							<span class="stat-label">best</span>
-						</div>
-						<div class="stat">
-							<span class="stat-value">{s.recentAvg}</span>
-							<span class="stat-label">avg</span>
-						</div>
-					</div>
-					{#if s.lastAttempt}
-						<div class="last-attempt">{formatDate(s.lastAttempt)}</div>
-					{/if}
+					{#each sourceGroups as group}
+						<optgroup label={group.label}>
+							{#each group.options as opt}
+								<option value={opt.value}>{opt.label}</option>
+							{/each}
+						</optgroup>
+					{/each}
+				</select>
+			</div>
+
+			<div class="metric-toggles">
+				<button
+					class="toggle-chip"
+					class:active={selectedMetrics.has('overall')}
+					style="--chip-color: {OVERALL_COLOR}"
+					onclick={() => toggleMetric('overall')}
+				>
+					Overall Score
 				</button>
-			{/each}
+				{#each availableMetrics as mk}
+					<button
+						class="toggle-chip"
+						class:active={selectedMetrics.has(mk)}
+						style="--chip-color: {METRIC_COLORS[mk]}"
+						onclick={() => toggleMetric(mk)}
+					>
+						{METRIC_LABELS[mk]}
+					</button>
+				{/each}
+			</div>
+		</div>
+
+		<ProgressChart results={sourceResults} datasets={chartDatasets} />
+
+		<div class="summary-section">
+			<h2 class="section-title">Exercises</h2>
+			<div class="summary-grid">
+				{#each summaries as s}
+					<button
+						class="summary-card"
+						class:selected={selectedSource === `exercise:${s.exerciseType}`}
+						onclick={() => selectExercise(s.exerciseType)}
+					>
+						<div class="summary-header">
+							<h3>{exerciseLabel(s.exerciseType)}</h3>
+							<span class="trend" style="color: {trendColor(s.trend)}">
+								{trendIcon(s.trend)}
+							</span>
+						</div>
+						<div class="summary-stats">
+							<div class="stat">
+								<span class="stat-value">{s.totalAttempts}</span>
+								<span class="stat-label">attempts</span>
+							</div>
+							<div class="stat">
+								<span class="stat-value">{s.bestScore}</span>
+								<span class="stat-label">best</span>
+							</div>
+							<div class="stat">
+								<span class="stat-value">{s.recentAvg}</span>
+								<span class="stat-label">avg</span>
+							</div>
+						</div>
+						{#if s.lastAttempt}
+							<div class="last-attempt">{formatDate(s.lastAttempt)}</div>
+						{/if}
+					</button>
+				{/each}
+			</div>
 		</div>
 	{/if}
 </div>
@@ -206,7 +283,8 @@
 		<div class="modal" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()}>
 			<h2 class="modal-title">Reset All Progress?</h2>
 			<p class="modal-body">
-				This will permanently delete all exercise results and your daily streak. This action cannot be undone.
+				This will permanently delete all exercise results and your daily streak. This action cannot
+				be undone.
 			</p>
 			<div class="modal-actions">
 				<button class="modal-btn cancel" onclick={() => (showResetModal = false)}>Cancel</button>
@@ -245,84 +323,102 @@
 		text-decoration: underline;
 	}
 
-	/* --- Detail panel --- */
+	/* --- Controls --- */
 
-	.detail-panel {
+	.controls {
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
+		gap: 14px;
 	}
 
-	.detail-header {
+	.source-row {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-	}
-
-	.detail-header h2 {
-		font-size: 1.15rem;
-		font-weight: 600;
-		color: #eeeeff;
-		margin: 0;
-	}
-
-	.close-btn {
-		background: transparent;
-		border: 1px solid #3a3a5a;
-		color: #888899;
-		width: 28px;
-		height: 28px;
-		border-radius: 8px;
-		cursor: pointer;
-		font-size: 0.8rem;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: all 0.15s;
-	}
-
-	.close-btn:hover {
-		border-color: #5a5a7a;
-		color: #ccccee;
-	}
-
-	/* --- Metric sparklines grid --- */
-
-	.metrics-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 		gap: 10px;
 	}
 
-	.metric-card {
-		background: #12122a;
-		border: 1px solid #222244;
+	.source-label {
+		font-size: 0.8rem;
+		color: #888899;
+		font-weight: 500;
+		white-space: nowrap;
+	}
+
+	.source-select {
+		background: #1a1a30;
+		color: #eeeeff;
+		border: 1px solid #3a3a5a;
 		border-radius: 10px;
-		padding: 10px 12px;
+		padding: 8px 14px;
+		font-size: 0.85rem;
+		cursor: pointer;
+		outline: none;
+		min-width: 180px;
+		transition: border-color 0.15s;
+	}
+
+	.source-select:focus {
+		border-color: #4c6ef5;
+	}
+
+	.source-select option {
+		background: #1a1a30;
+		color: #eeeeff;
+	}
+
+	.source-select optgroup {
+		color: #888899;
+		font-weight: 600;
+	}
+
+	/* --- Metric toggle chips --- */
+
+	.metric-toggles {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+
+	.toggle-chip {
+		padding: 6px 14px;
+		border-radius: 20px;
+		border: 1px solid #3a3a5a;
+		background: transparent;
+		color: #888899;
+		font-size: 0.78rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all 0.15s;
+		white-space: nowrap;
+	}
+
+	.toggle-chip:hover {
+		border-color: var(--chip-color);
+		color: var(--chip-color);
+	}
+
+	.toggle-chip.active {
+		border-color: var(--chip-color);
+		color: var(--chip-color);
+		background: color-mix(in srgb, var(--chip-color) 15%, transparent);
+	}
+
+	/* --- Summary section --- */
+
+	.summary-section {
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		gap: 12px;
 	}
 
-	.metric-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.metric-label {
-		font-size: 0.75rem;
-		color: #8888aa;
-		font-weight: 500;
-	}
-
-	.metric-value {
+	.section-title {
 		font-size: 0.85rem;
 		font-weight: 600;
-		font-variant-numeric: tabular-nums;
+		color: #888899;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		margin: 0;
 	}
-
-	/* --- Summary cards --- */
 
 	.summary-grid {
 		display: grid;
